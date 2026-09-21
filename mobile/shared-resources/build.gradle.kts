@@ -11,7 +11,7 @@ plugins {
 android {
    compileSdk = 36
 
-   namespace = "com.matejdro.catapult.sharedresources"
+   namespace = "com.ltpitt.pebblin.sharedresources"
 
    defaultConfig {
       minSdk = 24

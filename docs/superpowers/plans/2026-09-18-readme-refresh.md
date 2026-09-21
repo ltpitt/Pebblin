@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rewrite the root README into a modern, concise landing page that helps a new Pebble + Tasker user install Catapult from this fork's GitHub preview release and understand its current AutoPebble/Pebble Tasker parity goal.
+**Goal:** Rewrite the root README into a modern, concise landing page that helps a new Pebble + Tasker user install Pebblin from this fork's GitHub preview release and understand its current AutoPebble/Pebble Tasker parity goal.
 
 **Architecture:** Keep the implementation documentation-only and limited to `README.MD`. Use the existing demo GIF, link directly to the rolling `debug-latest` GitHub release for both the Android APK and Pebble PBW, and link deeper capability/developer details to the existing parity, release, and contribution documents.
 
@@ -30,23 +30,23 @@
 Replace the entire contents of `README.MD` with the following. Keep the repository-relative asset and documentation links exactly as shown, and keep the release URL pointed at this fork:
 
 ```markdown
-# Catapult for Pebble
+# Pebblin for Pebble
 
 <div align="center">
 
 Control your Tasker actions from your Pebble watch.
 
-[**Download the latest preview**](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest)
+[**Download the latest preview**](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest)
 ·
 [**See the feature parity matrix**](docs/superpowers/reference/autopebble-parity-matrix.md)
 
 </div>
 
-![Catapult running on a Pebble watch](docs/demo.gif)
+![Pebblin running on a Pebble watch](docs/demo.gif)
 
-## What is Catapult?
+## What is Pebblin?
 
-Catapult connects [Tasker](https://tasker.joaoapps.com/) with PebbleOS watches,
+Pebblin connects [Tasker](https://tasker.joaoapps.com/) with PebbleOS watches,
 so actions you already use on Android can be launched, organized, and answered
 from your wrist.
 
@@ -67,12 +67,12 @@ shows what is built, planned, or intentionally not supported.
 The current download is a rolling preview. It is convenient for trying the
 latest fork, but it is not a stable release channel.
 
-1. Open the [latest preview release](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest).
+1. Open the [latest preview release](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest).
 2. Download both assets:
-   - `catapult-mobile.apk` — the Android app.
-   - `catapult-watchapp.pbw` — the Pebble watchapp.
+   - `pebblin-mobile.apk` — the Android app.
+   - `pebblin-watchapp.pbw` — the Pebble watchapp.
 3. Install the APK on your Android phone.
-4. Install the PBW through a supported Pebble companion app, then open Catapult
+4. Install the PBW through a supported Pebble companion app, then open Pebblin
    and sync your Tasker actions.
 
 The legacy Pebble app is not supported. Use
@@ -81,7 +81,7 @@ Pebble/Core app instead.
 
 ## What works today
 
-Catapult currently supports:
+Pebblin currently supports:
 
 - **Launch and organize:** launch Tasker actions from the watch, use nested
   folders, and browse cached actions even when the phone is not immediately
@@ -102,22 +102,22 @@ Interactive actions return these local variables to Tasker:
 
 | Variable | Meaning |
 | --- | --- |
-| `%catapult_status` | `success`, `failed`, `cancelled`, or `timeout` |
-| `%catapult_result_id` | Selected item's ID (list selection only) |
-| `%catapult_result_value` | Selected item's value (list selection only) |
+| `%pebblin_status` | `success`, `failed`, `cancelled`, or `timeout` |
+| `%pebblin_result_id` | Selected item's ID (list selection only) |
+| `%pebblin_result_value` | Selected item's value (list selection only) |
 
 For example, an "Ask for a location" task can show a CSV of saved locations,
 then use a follow-up Tasker condition:
 
 ```text
-If %catapult_status ~ success
+If %pebblin_status ~ success
     Open Google Maps:
-    geo:0,0?q=%catapult_result_value(%catapult_result_id)
+    geo:0,0?q=%pebblin_result_value(%pebblin_result_id)
 ```
 
 ## Project links
 
-- [Latest preview release](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest)
+- [Latest preview release](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest)
 - [AutoPebble parity matrix](docs/superpowers/reference/autopebble-parity-matrix.md)
 - [Release and build notes](RELEASING.md)
 - [Contributing](CONTRIBUTING.MD)
@@ -169,7 +169,7 @@ Run:
 
 Expected result: the command exits successfully without matching lines. The
 upstream repository may remain in the attribution link, but release/download
-links must point to `ltpitt/PebbleCatapult`.
+links must point to `ltpitt/Pebblin`.
 
 - [ ] **Step 2: Verify the README contains the approved user-facing contracts**
 
@@ -177,7 +177,7 @@ Run:
 
 ```bash
 rg -n \
-  'community fork|AutoPebble|Pebble Tasker|debug-latest|catapult-mobile\.apk|catapult-watchapp\.pbw|Pebble Time Round|%catapult_status|%catapult_result_id|%catapult_result_value|CONTRIBUTING\.MD' \
+  'community fork|AutoPebble|Pebble Tasker|debug-latest|pebblin-mobile\.apk|pebblin-watchapp\.pbw|Pebble Time Round|%pebblin_status|%pebblin_result_id|%pebblin_result_value|CONTRIBUTING\.MD' \
   README.MD
 ```
 
@@ -191,20 +191,20 @@ Run:
 
 ```bash
 gh release view debug-latest \
-  --repo ltpitt/PebbleCatapult \
+  --repo ltpitt/Pebblin \
   --json isPrerelease,assets \
   --jq '{isPrerelease, assets: [.assets[].name]}'
 ```
 
 Expected result: `isPrerelease` is `true`, and the asset list contains both
-`catapult-mobile.apk` and `catapult-watchapp.pbw`.
+`pebblin-mobile.apk` and `pebblin-watchapp.pbw`.
 
 - [ ] **Step 4: Verify the external release and attribution URLs respond**
 
 Run:
 
 ```bash
-curl -fsSI https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest >/dev/null
+curl -fsSI https://github.com/ltpitt/Pebblin/releases/tag/debug-latest >/dev/null
 curl -fsSI https://github.com/matejdro/PebbleCatapult >/dev/null
 curl -fsSI https://github.com/matejdro/microPebble >/dev/null
 curl -fsSI https://tasker.joaoapps.com/ >/dev/null

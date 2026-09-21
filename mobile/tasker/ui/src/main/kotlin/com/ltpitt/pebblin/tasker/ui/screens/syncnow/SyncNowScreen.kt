@@ -1,0 +1,124 @@
+package com.ltpitt.pebblin.tasker.ui.screens.syncnow
+
+import android.os.Bundle
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.airbnb.android.showkase.annotation.ShowkaseComposable
+import com.ltpitt.pebblin.tasker.BundleKeys
+import com.ltpitt.pebblin.tasker.TaskerAction
+import com.ltpitt.pebblin.tasker.ui.R
+import com.ltpitt.pebblin.tasker.ui.TaskerConfigurationActivity
+import com.ltpitt.pebblin.ui.debugging.FullScreenPreviews
+import com.ltpitt.pebblin.ui.debugging.PreviewTheme
+import kotlinx.serialization.Serializable
+import me.zhanghai.compose.preference.LocalPreferenceTheme
+import me.zhanghai.compose.preference.SwitchPreference
+import me.zhanghai.compose.preference.preferenceTheme
+import si.inova.kotlinova.core.activity.requireActivity
+import si.inova.kotlinova.navigation.screenkeys.ScreenKey
+import si.inova.kotlinova.navigation.screens.InjectNavigationScreen
+import si.inova.kotlinova.navigation.screens.Screen
+
+@InjectNavigationScreen
+class SyncNowScreen : Screen<SyncNowScreenKey>() {
+   @Composable
+   override fun Content(key: SyncNowScreenKey) {
+      val activity = LocalContext.current.requireActivity().let { it as TaskerConfigurationActivity }
+
+      var onlyOnWatchface by rememberSaveable {
+         mutableStateOf(
+            activity.existingData.getBoolean(BundleKeys.ONLY_ON_WATCHFACE, false)
+         )
+      }
+
+      SideEffect {
+         if (activity.existingData.isEmpty) {
+            save(activity, onlyOnWatchface)
+         }
+      }
+
+      SyncNowScreenContent(
+         onlyOnWatchface,
+         { newValue ->
+            onlyOnWatchface = newValue
+            save(activity, newValue)
+         },
+         {
+            activity.finish()
+         }
+      )
+   }
+
+   private fun save(
+      activity: TaskerConfigurationActivity,
+      onlyOnWatchface: Boolean,
+   ) {
+      val message = if (onlyOnWatchface) {
+         activity.getString(R.string.sync_now_only_on_watchface)
+      } else {
+         activity.getString(R.string.sync_now)
+      }
+
+      activity.saveConfiguration(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, TaskerAction.SYNC_NOW.name)
+            putBoolean(BundleKeys.ONLY_ON_WATCHFACE, onlyOnWatchface)
+         },
+         message
+      )
+   }
+}
+
+@Composable
+private fun SyncNowScreenContent(
+   onlyOnWatchface: Boolean,
+   setOnlyOnWatchface: (value: Boolean) -> Unit,
+   save: () -> Unit,
+) {
+   CompositionLocalProvider(LocalPreferenceTheme provides preferenceTheme()) {
+      Column(
+         verticalArrangement = Arrangement.spacedBy(16.dp),
+         modifier = Modifier.safeDrawingPadding(),
+         horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+         SwitchPreference(
+            onlyOnWatchface,
+            { setOnlyOnWatchface(it) },
+            title = { Text(stringResource(R.string.only_on_watchface_title)) },
+            summary = { Text(stringResource(R.string.only_on_watchface_description)) }
+         )
+
+         Button(onClick = save, modifier = Modifier.padding(horizontal = 16.dp)) {
+            Text(stringResource(R.string.save))
+         }
+      }
+   }
+}
+
+@FullScreenPreviews
+@Composable
+@ShowkaseComposable(group = "test")
+internal fun SyncNowScreenPreview() {
+   PreviewTheme {
+      SyncNowScreenContent(true, {}, {})
+   }
+}
+
+@Serializable
+data object SyncNowScreenKey : ScreenKey()

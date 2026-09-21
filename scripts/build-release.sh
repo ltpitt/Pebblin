@@ -7,4 +7,4 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 log "Building release APK (mobile/gradlew :app:assembleRelease)"
 cd mobile
 ./gradlew :app:assembleRelease
-log "APK: mobile/app/build/outputs/apk/release/catapult-mobile.apk"
+log "APK: mobile/app/build/outputs/apk/release/pebblin-mobile.apk"

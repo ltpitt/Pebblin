@@ -16,7 +16,7 @@
             android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge">
-            <meta-data android:name="com.matejdro.catapult.crashreport.CrashReportInitializer"
+            <meta-data android:name="com.ltpitt.pebblin.crashreport.CrashReportInitializer"
                        android:value="androidx.startup" />
         </provider>
     </application>

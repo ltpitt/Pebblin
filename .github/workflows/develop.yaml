@@ -230,7 +230,7 @@ jobs:
       # Build watchapp
 
       - name: Build watchapp
-        run: pebble build && mv build/watch.pbw build/catapult-watchapp.pbw
+        run: pebble build && mv build/watch.pbw build/pebblin-watchapp.pbw
         working-directory: watch
         if: "${{ env.BUILD_WATCH == 'true' }}"
 
@@ -238,8 +238,8 @@ jobs:
         id: changelog
         uses: inovait/actions-common/git-changelog-generator@e39161d71d6b0200b425ed4145cc4cc080c4cf56
         with:
-          git_commit_url_prefix: 'https://github.com/matejdro/PebbleCatapult/commit/'
-          jira_url: 'https://github.com/matejdro/PebbleCatapult'
+          git_commit_url_prefix: 'https://github.com/ltpitt/Pebblin/commit/'
+          jira_url: 'https://github.com/ltpitt/Pebblin'
           from: '${{ env.OLD_VERSION_REF }}'
           to: HEAD
           show_names: true
@@ -249,10 +249,10 @@ jobs:
         run: |
           CHANGELOG_EXTRA=""
           if [[ "$BUILD_WATCH" == "false" ]]; then
-            CHANGELOG_EXTRA="$CHANGELOG_EXTRA\n\nFor the watchapp, download the [$OLD_WATCH_VERSION](https://github.com/matejdro/PebbleCatapult/releases/tag/$OLD_WATCH_VERSION) version."
+            CHANGELOG_EXTRA="$CHANGELOG_EXTRA\n\nFor the watchapp, download the [$OLD_WATCH_VERSION](https://github.com/ltpitt/Pebblin/releases/tag/$OLD_WATCH_VERSION) version."
           fi
           if [[ "$BUILD_MOBILE" == "false" ]]; then
-            CHANGELOG_EXTRA="$CHANGELOG_EXTRA\n\nFor the phone app, download the [$OLD_MOBILE_VERSION](https://github.com/matejdro/PebbleCatapult/releases/tag/$OLD_MOBILE_VERSION) version."
+            CHANGELOG_EXTRA="$CHANGELOG_EXTRA\n\nFor the phone app, download the [$OLD_MOBILE_VERSION](https://github.com/ltpitt/Pebblin/releases/tag/$OLD_MOBILE_VERSION) version."
           fi
 
           echo "CHANGELOG_EXTRA<<DELIMITERXXXX" >> $GITHUB_ENV
@@ -275,8 +275,8 @@ jobs:
         with:
           name: release-artifacts
           path: |
-            mobile/app/build/outputs/apk/release/catapult-mobile.apk
-            watch/build/catapult-watchapp.pbw
+            mobile/app/build/outputs/apk/release/pebblin-mobile.apk
+            watch/build/pebblin-watchapp.pbw
       - name: Create a Release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         env:
@@ -285,5 +285,5 @@ jobs:
           name: ${{ env.VERSION }}
           tag: ${{ env.VERSION }}
           body: ${{ steps.changelog.outputs.changelog }}${{env.CHANGELOG_EXTRA}}
-          artifacts: "mobile/app/build/outputs/apk/release/catapult-mobile.apk,watch/build/catapult-watchapp.pbw"
+          artifacts: "mobile/app/build/outputs/apk/release/pebblin-mobile.apk,watch/build/pebblin-watchapp.pbw"
           generateReleaseNotes: false

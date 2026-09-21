@@ -48,7 +48,7 @@ static void window_load(Window* window)
     text_layer_set_text_color(app_name_text, GColorWhite);
     text_layer_set_background_color(app_name_text, GColorClear);
     text_layer_set_font(app_name_text, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-    text_layer_set_text(app_name_text, "Catapult");
+    text_layer_set_text(app_name_text, "Pebblin");
 
     layer_add_child(window_layer, text_layer_get_layer(main_text));
     layer_add_child(window_layer, status_bar->layer);

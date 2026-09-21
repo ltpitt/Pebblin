@@ -85,7 +85,7 @@ jobs:
       # Build watchapp
 
       - name: Build watchapp
-        run: pebble build && mv build/watch.pbw build/catapult-watchapp.pbw
+        run: pebble build && mv build/watch.pbw build/pebblin-watchapp.pbw
         working-directory: watch
 
         #     GitHub Actions does not allow PR actions triggered from external contributors

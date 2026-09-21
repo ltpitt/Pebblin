@@ -1,7 +1,7 @@
-restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.matejdro.catapult.MainActivity.NavigationRoot(
+restartable skippable scheme("[androidx.compose.ui.UiComposable]") fun com.ltpitt.pebblin.MainActivity.NavigationRoot(
   initialHistory: ImmutableList<ScreenKey>
   unstable <this>: MainActivity
 )
-restartable skippable fun com.matejdro.catapult.LogCurrentScreen(
+restartable skippable fun com.ltpitt.pebblin.LogCurrentScreen(
   stable backstack: Backstack
 )

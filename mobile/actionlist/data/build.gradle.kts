@@ -7,7 +7,7 @@ plugins {
 sqldelight {
    databases {
       create("Database") {
-         packageName.set("com.matejdro.catapult.actionlist.sqldelight.generated")
+         packageName.set("com.ltpitt.pebblin.actionlist.sqldelight.generated")
          schemaOutputDirectory.set(file("src/main/sqldelight/databases"))
       }
    }

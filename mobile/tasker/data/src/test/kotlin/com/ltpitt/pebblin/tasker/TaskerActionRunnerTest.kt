@@ -1,0 +1,431 @@
+package com.ltpitt.pebblin.tasker
+
+import android.os.Bundle
+import com.ltpitt.pebblin.actionlist.api.PebblinAction
+import com.ltpitt.pebblin.actionlist.test.FakePebblinActionRepository
+import com.ltpitt.pebblin.bluetooth.FakePebbleInfoRetriever
+import com.ltpitt.pebblin.bluetooth.FakeWatchNotificationSender
+import com.ltpitt.pebblin.bluetooth.FakeWatchappOpenController
+import com.ltpitt.pebblin.bluetooth.NotificationSendResult
+import com.ltpitt.pebblin.bluetooth.api.WATCHAPP_UUID
+import com.matejdro.pebble.bluetooth.common.test.FakePebbleSender
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.throwable.shouldHaveMessage
+import io.rebble.pebblekit2.common.model.TimelineLayout
+import io.rebble.pebblekit2.common.model.TimelineLayoutType
+import io.rebble.pebblekit2.common.model.TimelinePin
+import io.rebble.pebblekit2.common.model.WatchIdentifier
+import io.rebble.pebblekit2.model.Watchapp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
+import si.inova.kotlinova.core.test.TestScopeWithDispatcherProvider
+import si.inova.kotlinova.core.test.outcomes.shouldBeSuccessWithData
+import si.inova.kotlinova.core.test.time.virtualTimeProvider
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.util.UUID
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toKotlinInstant
+
+class TaskerActionRunnerTest {
+   private val scope = TestScopeWithDispatcherProvider()
+   private val repo = FakePebblinActionRepository()
+   private val pebbleSender = FakePebbleSender(scope.virtualTimeProvider())
+   private val pebbleInfoRetriever = FakePebbleInfoRetriever()
+   private val openController = FakeWatchappOpenController()
+   private val interactiveManager = RecordingInteractiveSessionManager()
+   private val watchNotificationSender = FakeWatchNotificationSender()
+   private val runner = TaskerActionRunner(
+      repo,
+      pebbleSender,
+      pebbleInfoRetriever,
+      openController,
+      scope.virtualTimeProvider(),
+      interactiveManager,
+      watchNotificationSender,
+   )
+
+   // Tasker's SEND_NOTIFICATION action posts an ordinary phone notification (mirrored to the watch
+   // by the Pebble app), so this fake only services the interactive list/confirmation flows.
+   private class RecordingInteractiveSessionManager : InteractiveSessionManager {
+      val requests = mutableListOf<InteractiveTaskerRequest>()
+
+      override fun registerSender(sender: InteractiveRequestSender) = Unit
+      override suspend fun awaitResult(request: InteractiveTaskerRequest): InteractiveTaskerResult {
+         requests += request
+         return when (request) {
+            is InteractiveTaskerRequest.List -> InteractiveTaskerResult.Selection(
+               request.items.first().id, request.items.first().value,
+            )
+            is InteractiveTaskerRequest.Confirmation -> InteractiveTaskerResult.Confirmation(true)
+         }
+      }
+      override suspend fun awaitResult(
+         request: InteractiveTaskerRequest,
+         timeout: kotlin.time.Duration,
+      ): InteractiveTaskerResult {
+         observedTimeout = timeout
+         return awaitResult(request)
+      }
+      var observedTimeout: kotlin.time.Duration? = null
+      override fun cancelActive(reason: String) = Unit
+      override suspend fun acceptResult(watchId: String, sessionId: UInt, result: InteractiveTaskerResult) = Unit
+   }
+
+   @Test
+   fun `Runner posts send notification as an ordinary phone notification`() = scope.runTest {
+      val bundle = Bundle().apply {
+         putString(BundleKeys.ACTION, TaskerAction.SEND_NOTIFICATION.name)
+         putString(BundleKeys.TITLE, "Door")
+         putString(BundleKeys.MESSAGE, "Front door opened")
+         putString(BundleKeys.NOTIFICATION_VIBRATION, "short")
+         putLong(BundleKeys.NOTIFICATION_DURATION_MS, 5_000)
+      }
+
+      runner.run(bundle) shouldBe InteractiveTaskerResult.Success
+      watchNotificationSender.sentNotifications shouldContainExactly listOf(
+         FakeWatchNotificationSender.SentNotification("Door", "Front door opened"),
+      )
+      pebbleSender.insertedPins.shouldBeEmpty()
+      NotificationRequest.fromBundle(bundle) shouldBe
+         NotificationRequest("Door", "Front door opened", VibrationStyle.SHORT, 5_000)
+   }
+
+   @Test
+   fun `Notification duration defaults to 10000 ms and preserves explicit zero`() = scope.runTest {
+      NotificationRequest.fromBundle(Bundle()).durationMs shouldBe 10_000
+
+      NotificationRequest.fromBundle(
+         Bundle().apply {
+            putLong(BundleKeys.NOTIFICATION_DURATION_MS, 0)
+         },
+      ).durationMs shouldBe 0
+   }
+
+   @Test
+   fun `Posts notification regardless of requested duration`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, TaskerAction.SEND_NOTIFICATION.name)
+            putString(BundleKeys.TITLE, "Door")
+            putLong(BundleKeys.NOTIFICATION_DURATION_MS, 0)
+         },
+      )
+
+      watchNotificationSender.sentNotifications.shouldNotBeEmpty()
+   }
+
+   @Test
+   fun `Report disabled notifications when posting`() = scope.runTest {
+      watchNotificationSender.result = NotificationSendResult.MISSING_PERMISSION
+
+      shouldThrow<TaskerInvalidInputException> {
+         runner.run(
+            Bundle().apply {
+               putString(BundleKeys.ACTION, TaskerAction.SEND_NOTIFICATION.name)
+               putString(BundleKeys.TITLE, "Door")
+            },
+         )
+      }.shouldHaveMessage("Notifications are disabled for Pebblin")
+   }
+
+   @Test
+   fun `Reject unsupported notification vibration values`() = scope.runTest {
+      val bundle = Bundle().apply {
+         putString(BundleKeys.TITLE, "Door")
+         putString(BundleKeys.MESSAGE, "Front door opened")
+         putString(BundleKeys.NOTIFICATION_VIBRATION, "unsupported")
+      }
+
+      shouldThrow<TaskerInvalidInputException> {
+         NotificationRequest.fromBundle(bundle)
+      }
+   }
+
+   @Test
+   fun `Allow explicit no vibration`() = scope.runTest {
+      val bundle = Bundle().apply {
+         putString(BundleKeys.NOTIFICATION_VIBRATION, "none")
+      }
+
+      NotificationRequest.fromBundle(bundle).vibration shouldBe VibrationStyle.NONE
+   }
+
+   @Test
+   fun `Run interactive confirmation through session manager`() = scope.runTest {
+      openController.setNextWatchappOpenForAutoSync()
+
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, TaskerAction.SHOW_CONFIRMATION.name)
+            putString(BundleKeys.TITLE, "Confirm")
+            putString(BundleKeys.MESSAGE, "Proceed?")
+         },
+      )
+
+      interactiveManager.requests.single() shouldBe
+         InteractiveTaskerRequest.Confirmation("Confirm", "Proceed?")
+      openController.isNextWatchappOpenForAutoSync() shouldBe false
+      pebbleSender.startedApps shouldContainExactly listOf(
+         FakePebbleSender.AppLifecycleEvent(WATCHAPP_UUID, null),
+      )
+   }
+
+   @Test
+   fun `Run interactive list from JSON`() = scope.runTest {
+      openController.setNextWatchappOpenForAutoSync()
+
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, TaskerAction.SHOW_LIST.name)
+            putString(BundleKeys.TITLE, "Choose")
+            putString(
+               BundleKeys.ITEMS,
+               InteractiveTaskerItems.encode(
+                  listOf(InteractiveTaskerRequest.Item("a=b", "Line 1\nLine 2")),
+               ),
+            )
+         },
+      )
+
+      interactiveManager.requests.single() shouldBe InteractiveTaskerRequest.List(
+         "Choose",
+         listOf(InteractiveTaskerRequest.Item("a=b", "Line 1\nLine 2")),
+      )
+      openController.isNextWatchappOpenForAutoSync() shouldBe false
+      pebbleSender.startedApps shouldContainExactly listOf(
+         FakePebbleSender.AppLifecycleEvent(WATCHAPP_UUID, null),
+      )
+   }
+
+   @Test
+   fun `Reject unexpanded interactive list Tasker variable placeholder`() = scope.runTest {
+      val error = shouldThrow<TaskerInvalidInputException> {
+         runner.run(
+            Bundle().apply {
+               putString(BundleKeys.ACTION, TaskerAction.SHOW_LIST.name)
+               putString(BundleKeys.TITLE, "Choose")
+               putString(BundleKeys.ITEMS, "%variable_name")
+            },
+         )
+      }
+
+      error shouldHaveMessage "Items must be a JSON array of objects with non-blank id and value"
+   }
+
+   @Test
+   fun `Zero interactive timeout uses the default`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, TaskerAction.SHOW_LIST.name)
+            putString(BundleKeys.TITLE, "Choose")
+            putString(BundleKeys.ITEMS, """[{"id":"home","value":"Home"}]""")
+            putLong(BundleKeys.TIMEOUT_MS, 0)
+         },
+      )
+
+      interactiveManager.observedTimeout shouldBe 60.seconds
+   }
+
+   @Test
+   fun `Reject malformed interactive list`() = scope.runTest {
+      shouldThrow<TaskerInvalidInputException> {
+         runner.run(
+            Bundle().apply {
+               putString(BundleKeys.ACTION, TaskerAction.SHOW_LIST.name)
+               putString(BundleKeys.TITLE, "Choose")
+               putString(BundleKeys.ITEMS, """[{"id":"","value":"value"}]""")
+            },
+         )
+      }
+   }
+
+   @Test
+   fun `Run toggle action`() = scope.runTest {
+      repo.insert(
+         PebblinAction("Action A", 10, 1, enabled = false),
+         PebblinAction("Action B", 10, 2, enabled = false),
+         PebblinAction("Action C", 10, 3, enabled = true),
+         PebblinAction("Action D", 10, 4, enabled = true),
+      )
+
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "TOGGLE_ACTIONS")
+            putInt(BundleKeys.DIRECTORY_ID, 10)
+            putString(BundleKeys.ENABLED_TASK_IDS, "1,2")
+            putString(BundleKeys.DISABLED_TASK_IDS, "3,4")
+         }
+      )
+      runCurrent()
+
+      repo.getAll(10).first() shouldBeSuccessWithData listOf(
+         PebblinAction("Action A", 10, 1, enabled = true),
+         PebblinAction("Action B", 10, 2, enabled = true),
+         PebblinAction("Action C", 10, 3, enabled = false),
+         PebblinAction("Action D", 10, 4, enabled = false),
+      )
+   }
+
+   @Test
+   fun `Start app on all watches when running normal sync now`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "SYNC_NOW")
+         }
+      )
+      runCurrent()
+
+      openController.isNextWatchappOpenForAutoSync() shouldBe true
+
+      pebbleSender.startedApps.shouldContainExactly(
+         FakePebbleSender.AppLifecycleEvent(WATCHAPP_UUID, null)
+      )
+   }
+
+   @Test
+   fun `Start app only on watches that are on the watchfaces with the only watchface flag`() = scope.runTest {
+      pebbleInfoRetriever.setConnectedWatchIds(
+         listOf(
+            WatchIdentifier("1"),
+            WatchIdentifier("2"),
+            WatchIdentifier("3"),
+         )
+      )
+
+      pebbleInfoRetriever.setActiveApp(
+         WatchIdentifier("1"),
+         Watchapp(UUID(1, 1), "App", Watchapp.Type.WATCHAPP)
+      )
+
+      pebbleInfoRetriever.setActiveApp(
+         WatchIdentifier("2"),
+         null
+      )
+
+      pebbleInfoRetriever.setActiveApp(
+         WatchIdentifier("3"),
+         Watchapp(UUID(1, 2), "Watchface", Watchapp.Type.WATCHFACE)
+
+      )
+
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "SYNC_NOW")
+            putBoolean(BundleKeys.ONLY_ON_WATCHFACE, true)
+         }
+      )
+      runCurrent()
+
+      openController.isNextWatchappOpenForAutoSync() shouldBe true
+
+      pebbleSender.startedApps.shouldContainExactly(
+         FakePebbleSender.AppLifecycleEvent(
+            WATCHAPP_UUID,
+            listOf(WatchIdentifier("3"))
+         ),
+      )
+   }
+
+   @Test
+   fun `Insert pin with full data`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "CREATE_PIN")
+            putString(BundleKeys.ID, "10")
+            putString(BundleKeys.TITLE, "Title")
+            putString(BundleKeys.TEXT, "Text")
+            putString(BundleKeys.START_DATE, "2026-02-10")
+            putString(BundleKeys.START_TIME, "10:00")
+            putString(BundleKeys.DURATION, "4")
+            putString(BundleKeys.ICON, "TIMELINE_WEATHER")
+         }
+      )
+      runCurrent()
+
+      val targetInstant = LocalDateTime.of(2026, 2, 10, 10, 0)
+         .atZone(ZoneId.of("UTC"))
+         .toInstant()
+         .toKotlinInstant()
+
+      pebbleSender.insertedPins.shouldContainExactly(
+         TimelinePin(
+            "10",
+            targetInstant,
+            4.minutes,
+            TimelineLayout(
+               TimelineLayoutType.CALENDAR_PIN,
+               "Title",
+               body = "Text",
+               tinyIcon = "system://images/TIMELINE_WEATHER",
+            )
+         )
+      )
+   }
+
+   @Test
+   fun `Insert pin with minimal data`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "CREATE_PIN")
+            putString(BundleKeys.ID, "10")
+            putString(BundleKeys.TITLE, "Title")
+            putString(BundleKeys.START_DATE, "2026-02-10")
+            putString(BundleKeys.START_TIME, "10:00")
+         }
+      )
+      runCurrent()
+
+      val targetInstant = LocalDateTime.of(2026, 2, 10, 10, 0)
+         .atZone(ZoneId.of("UTC"))
+         .toInstant()
+         .toKotlinInstant()
+
+      pebbleSender.insertedPins.shouldContainExactly(
+         TimelinePin(
+            "10",
+            targetInstant,
+            layout = TimelineLayout(
+               TimelineLayoutType.GENERIC_PIN,
+               "Title",
+            )
+         )
+      )
+   }
+
+   @Test
+   fun `Throw exception on invalid formatting`() = scope.runTest {
+      shouldThrow<TaskerInvalidInputException> {
+         runner.run(
+            Bundle().apply {
+               putString(BundleKeys.ACTION, "CREATE_PIN")
+               putString(BundleKeys.ID, "10")
+               putString(BundleKeys.TITLE, "Title")
+               putString(BundleKeys.START_DATE, "2026-02")
+               putString(BundleKeys.START_TIME, "10:00")
+            }
+         )
+         runCurrent()
+      }.shouldHaveMessage("Invalid date format: '2026-02'")
+   }
+
+   @Test
+   fun `Delete pin`() = scope.runTest {
+      runner.run(
+         Bundle().apply {
+            putString(BundleKeys.ACTION, "DELETE_PIN")
+            putString(BundleKeys.ID, "10")
+         }
+      )
+      runCurrent()
+
+      pebbleSender.deletedPins.shouldContainExactly("10")
+   }
+}

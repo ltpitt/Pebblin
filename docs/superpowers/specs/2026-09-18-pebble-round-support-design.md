@@ -35,7 +35,7 @@ the emulator is the validation surface for deciding whether they need changes.
 
 - Confirm the manifest contains `chalk`.
 - Run the existing watchapp build command.
-- Install/start Catapult with the Pebble Round emulator.
+- Install/start Pebblin with the Pebble Round emulator.
 - Leave interactive UI testing to the user after the emulator starts.
 
 No new automated tests are needed for this manifest-only change.

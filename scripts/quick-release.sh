@@ -53,7 +53,7 @@ done
 log "Watching run $run_id"
 gh run watch "$run_id" --repo "$repo" --exit-status
 
-expected_assets="catapult-mobile.apk,catapult-watchapp.pbw"
+expected_assets="pebblin-mobile.apk,pebblin-watchapp.pbw"
 is_prerelease="$(gh release view debug-latest --repo "$repo" --json isPrerelease --jq '.isPrerelease')"
 assets="$(gh release view debug-latest --repo "$repo" --json assets --jq '[.assets[].name] | sort | join(",")')"
 target_commit="$(gh release view debug-latest --repo "$repo" --json targetCommitish --jq '.targetCommitish // ""')"

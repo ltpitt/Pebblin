@@ -1,0 +1,436 @@
+package com.ltpitt.pebblin.actionlist.data
+
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import app.cash.turbine.test
+import com.ltpitt.pebblin.actionlist.api.PebblinAction
+import com.ltpitt.pebblin.actionlist.api.PebblinDirectory
+import com.ltpitt.pebblin.actionlist.sqldelight.generated.Database
+import com.ltpitt.pebblin.actionlist.sqldelight.generated.DbActionQueries
+import com.ltpitt.pebblin.bluetooth.FakeWatchSyncer
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
+import si.inova.kotlinova.core.test.TestScopeWithDispatcherProvider
+import si.inova.kotlinova.core.test.outcomes.shouldBeSuccessWithData
+
+class PebblinActionRepositoryImplTest {
+   private val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).apply {
+      Database.Schema.create(this)
+   }
+
+   private val syncer = FakeWatchSyncer()
+
+   private val repo = PebblinActionRepositoryImpl(createTestActionQueries(driver), syncer)
+   private val scope = TestScopeWithDispatcherProvider()
+
+   @Test
+   fun `Return added actions`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         repo.insert(
+            PebblinAction("Action B", 1, targetDirectoryId = 2, voiceArgument = true)
+         )
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction(
+               "Action A",
+               1,
+               1,
+               taskerTaskName = "Task A"
+            ),
+            PebblinAction(
+               "Action B",
+               1,
+               2,
+               targetDirectoryId = 2,
+               targetDirectoryName = "Directory B",
+               voiceArgument = true
+            )
+         )
+      }
+   }
+
+   @Test
+   fun `Return single action`() = scope.runTest {
+      setupDirectories()
+
+      repo.getById(2).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         repo.insert(
+            PebblinAction("Action B", 1, targetDirectoryId = 2)
+         )
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData PebblinAction(
+            "Action B",
+            1,
+            2,
+            targetDirectoryId = 2,
+            targetDirectoryName = "Directory B"
+         )
+      }
+   }
+
+   @Test
+   fun `Allow updating action name`() = scope.runTest {
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         runCurrent()
+
+         repo.update(id = 1, title = "Action B", enabled = true, voiceArgument = false)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action B", 1, 1, taskerTaskName = "Task A"),
+         )
+      }
+   }
+
+   @Test
+   fun `Allow updating voice argument`() = scope.runTest {
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         runCurrent()
+
+         repo.update(1, "Action A", true, true)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action A", 1, 1, taskerTaskName = "Task A", voiceArgument = true),
+         )
+      }
+   }
+
+   @Test
+   fun `Allow updating action enabled status`() = scope.runTest {
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         runCurrent()
+
+         repo.update(id = 1, title = "Action A", enabled = false, voiceArgument = false)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action A", 1, 1, taskerTaskName = "Task A", enabled = false),
+         )
+      }
+   }
+
+   @Test
+   fun `Allow deleting actions`() = scope.runTest {
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         runCurrent()
+
+         repo.delete(1)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData emptyList()
+      }
+   }
+
+   @Test
+   fun `Return only enabled actions`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1, onlyEnabled = true).test {
+         runCurrent()
+
+         repo.insert(
+            PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+         )
+         repo.insert(
+            PebblinAction("Action B", 1, targetDirectoryId = 2)
+         )
+         runCurrent()
+
+         repo.update(id = 1, title = "Action A", enabled = false, voiceArgument = false)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action B", 1, 2, targetDirectoryId = 2, targetDirectoryName = "Directory B")
+         )
+      }
+   }
+
+   @Test
+   fun `Move action upwards`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(PebblinAction("Action A", 1, taskerTaskName = "Task A"))
+         repo.insert(PebblinAction("Action B", 1, taskerTaskName = "Task B"))
+         repo.insert(PebblinAction("Action C", 1, taskerTaskName = "Task C"))
+         repo.insert(PebblinAction("Action D", 1, taskerTaskName = "Task D"))
+         runCurrent()
+
+         repo.reorder(2, 3)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action A", 1, 1, taskerTaskName = "Task A"),
+            PebblinAction("Action C", 1, 3, taskerTaskName = "Task C"),
+            PebblinAction("Action D", 1, 4, taskerTaskName = "Task D"),
+            PebblinAction("Action B", 1, 2, taskerTaskName = "Task B"),
+         )
+      }
+   }
+
+   @Test
+   fun `Move action downwards`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(PebblinAction("Action A", 1, taskerTaskName = "Task A"))
+         repo.insert(PebblinAction("Action B", 1, taskerTaskName = "Task B"))
+         repo.insert(PebblinAction("Action C", 1, taskerTaskName = "Task C"))
+         repo.insert(PebblinAction("Action D", 1, taskerTaskName = "Task D"))
+         runCurrent()
+
+         repo.reorder(4, 1)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action A", 1, 1, taskerTaskName = "Task A"),
+            PebblinAction("Action D", 1, 4, taskerTaskName = "Task D"),
+            PebblinAction("Action B", 1, 2, taskerTaskName = "Task B"),
+            PebblinAction("Action C", 1, 3, taskerTaskName = "Task C"),
+         )
+      }
+   }
+
+   @Test
+   fun `Handle reordering after delete`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(PebblinAction("Action A", 1, taskerTaskName = "Task A"))
+         repo.insert(PebblinAction("Action B", 1, taskerTaskName = "Task B"))
+         repo.insert(PebblinAction("Action C", 1, taskerTaskName = "Task C"))
+         repo.insert(PebblinAction("Action D", 1, taskerTaskName = "Task D"))
+         runCurrent()
+
+         repo.delete(2)
+         runCurrent()
+
+         repo.reorder(1, 1)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action C", 1, 3, taskerTaskName = "Task C"),
+            PebblinAction("Action A", 1, 1, taskerTaskName = "Task A"),
+            PebblinAction("Action D", 1, 4, taskerTaskName = "Task D"),
+         )
+      }
+   }
+
+   @Test
+   fun `Do not affect other directories when reordering`() = scope.runTest {
+      setupDirectories()
+
+      repo.insert(PebblinAction("Action 1A", 1, taskerTaskName = "Task A"))
+      repo.insert(PebblinAction("Action 1B", 1, taskerTaskName = "Task B"))
+      repo.insert(PebblinAction("Action 1C", 1, taskerTaskName = "Task C"))
+      repo.insert(PebblinAction("Action 1D", 1, taskerTaskName = "Task D"))
+
+      repo.insert(PebblinAction("Action 2A", 2, taskerTaskName = "Task A"))
+      repo.insert(PebblinAction("Action 2B", 2, taskerTaskName = "Task B"))
+      repo.insert(PebblinAction("Action 2C", 2, taskerTaskName = "Task C"))
+      repo.insert(PebblinAction("Action 2D", 2, taskerTaskName = "Task D"))
+
+      runCurrent()
+
+      repo.getAll(1).test {
+         repo.reorder(3, 0)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action 1C", 1, 3, taskerTaskName = "Task C"),
+            PebblinAction("Action 1A", 1, 1, taskerTaskName = "Task A"),
+            PebblinAction("Action 1B", 1, 2, taskerTaskName = "Task B"),
+            PebblinAction("Action 1D", 1, 4, taskerTaskName = "Task D"),
+         )
+      }
+
+      repo.getAll(2).test {
+         repo.reorder(5, 1)
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action 2B", 2, 6, taskerTaskName = "Task B"),
+            PebblinAction("Action 2A", 2, 5, taskerTaskName = "Task A"),
+            PebblinAction("Action 2C", 2, 7, taskerTaskName = "Task C"),
+            PebblinAction("Action 2D", 2, 8, taskerTaskName = "Task D"),
+         )
+      }
+   }
+
+   @Test
+   fun `Return added actions with a limit`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1, limit = 8).test {
+         runCurrent()
+
+         repeat(10) { i ->
+            repo.insert(
+               PebblinAction("Action $i", 1),
+            )
+         }
+         runCurrent()
+
+         expectMostRecentItem().data.shouldNotBeNull().shouldHaveSize(8)
+      }
+   }
+
+   @Test
+   fun `Inserting action should trigger folder sync`() = scope.runTest {
+      runCurrent()
+
+      repo.insert(
+         PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+      )
+      runCurrent()
+
+      syncer.syncedDirectories.shouldContainExactly(1)
+   }
+
+   @Test
+   fun `Updating action name should trigger folder sync`() = scope.runTest {
+      runCurrent()
+
+      repo.insert(
+         PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+      )
+      runCurrent()
+
+      syncer.syncedDirectories.clear()
+      repo.update(id = 1, title = "Action B", enabled = true, voiceArgument = false)
+      runCurrent()
+
+      syncer.syncedDirectories.shouldContainExactly(1)
+   }
+
+   @Test
+   fun `Deleting actions should trigger folder sync`() = scope.runTest {
+      runCurrent()
+
+      repo.insert(
+         PebblinAction("Action A", 1, taskerTaskName = "Task A"),
+      )
+      runCurrent()
+
+      syncer.syncedDirectories.clear()
+      repo.delete(1)
+      runCurrent()
+
+      syncer.syncedDirectories.shouldContainExactly(1)
+   }
+
+   @Test
+   fun `Reordering actions should trigger folder sync`() = scope.runTest {
+      setupDirectories()
+
+      runCurrent()
+
+      repo.insert(PebblinAction("Action A", 1, taskerTaskName = "Task A"))
+      repo.insert(PebblinAction("Action B", 1, taskerTaskName = "Task B"))
+      runCurrent()
+
+      syncer.syncedDirectories.clear()
+      repo.reorder(1, 2)
+      runCurrent()
+
+      syncer.syncedDirectories.shouldContainExactly(1)
+   }
+
+   @Test
+   fun `Perform mass toggle`() = scope.runTest {
+      setupDirectories()
+
+      repo.getAll(1).test {
+         runCurrent()
+
+         repo.insert(PebblinAction("Action A", 1, enabled = false))
+         repo.insert(PebblinAction("Action B", 1, enabled = false))
+         repo.insert(PebblinAction("Action C", 1, enabled = false))
+         repo.insert(PebblinAction("Action D", 1, enabled = true))
+         repo.insert(PebblinAction("Action E", 1, enabled = true))
+         repo.insert(PebblinAction("Action F", 1, enabled = true))
+         runCurrent()
+         syncer.syncedDirectories.clear()
+
+         repo.massToggle(
+            directory = 1,
+            enable = listOf(2, 3, 4),
+            disable = listOf(1, 5, 6),
+         )
+         runCurrent()
+
+         expectMostRecentItem() shouldBeSuccessWithData listOf(
+            PebblinAction("Action A", 1, 1, enabled = false),
+            PebblinAction("Action B", 1, 2, enabled = true),
+            PebblinAction("Action C", 1, 3, enabled = true),
+            PebblinAction("Action D", 1, 4, enabled = true),
+            PebblinAction("Action E", 1, 5, enabled = false),
+            PebblinAction("Action F", 1, 6, enabled = false),
+         )
+      }
+
+      syncer.syncedDirectories.shouldContainExactly(1)
+   }
+
+   private suspend fun setupDirectories() {
+      val directoryRepo = DirectoryListRepositoryImpl(createTestDirectoryQueries(driver), syncer)
+
+      directoryRepo.insert(PebblinDirectory(0, "Directory A"))
+      directoryRepo.insert(PebblinDirectory(1, "Directory B"))
+   }
+}
+
+private fun createTestActionQueries(
+   driver: SqlDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).apply {
+      Database.Schema.create(
+         this
+      )
+   },
+): DbActionQueries {
+   return Database(driver).dbActionQueries
+}

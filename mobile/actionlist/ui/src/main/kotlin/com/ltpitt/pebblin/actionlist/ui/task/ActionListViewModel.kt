@@ -1,0 +1,117 @@
+package com.ltpitt.pebblin.actionlist.ui.task
+
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import com.ltpitt.pebblin.actionlist.api.PebblinAction
+import com.ltpitt.pebblin.actionlist.api.PebblinActionRepository
+import com.ltpitt.pebblin.actionlist.api.PebblinDirectory
+import com.ltpitt.pebblin.actionlist.api.DirectoryListRepository
+import com.ltpitt.pebblin.actionlist.api.MAX_ACTIONS_TO_SYNC
+import com.ltpitt.pebblin.common.logging.ActionLogger
+import com.ltpitt.pebblin.navigation.keys.ActionListKey
+import dev.zacsweers.metro.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import si.inova.kotlinova.core.outcome.CoroutineResourceManager
+import si.inova.kotlinova.core.outcome.Outcome
+import si.inova.kotlinova.core.outcome.flatMapLatestOutcome
+import si.inova.kotlinova.core.outcome.mapData
+import si.inova.kotlinova.navigation.services.ContributesScopedService
+import si.inova.kotlinova.navigation.services.SingleScreenViewModel
+
+@Stable
+@Inject
+@ContributesScopedService
+class ActionListViewModel(
+   private val resources: CoroutineResourceManager,
+   private val directoryRepo: DirectoryListRepository,
+   private val actionsRepo: PebblinActionRepository,
+   private val actionLogger: ActionLogger,
+) : SingleScreenViewModel<ActionListKey>(resources.scope) {
+   private val _uiState = MutableStateFlow<Outcome<ActionListState>>(Outcome.Progress())
+   val uiState: StateFlow<Outcome<ActionListState>> = _uiState
+
+   private var selectedDirectory: Int? = null
+
+   override fun onServiceRegistered() {
+      val id = key.id
+      actionLogger.logAction { "TaskListViewModel.load(id = $id)" }
+      selectedDirectory = id
+
+      resources.launchResourceControlTask(_uiState) {
+         val flow = directoryRepo.getSingle(id).flatMapLatestOutcome { directory ->
+            actionsRepo.getAll(directory.id).map { outcome ->
+               outcome.mapData { list ->
+                  ActionListState(directory, list, list.size > MAX_ACTIONS_TO_SYNC)
+               }
+            }
+         }
+
+         emitAll(flow)
+      }
+   }
+
+   fun add(title: String, targetTask: String?, targetDirectory: Int?, voiceArgument: Boolean) =
+      resources.launchWithExceptionReporting {
+         actionLogger.logAction {
+            "TaskListViewModel.add(" +
+               "title = $title, targetTask = ${targetTask ?: "null"}, targetDirectory = ${targetDirectory ?: "null"}" +
+               ")"
+         }
+
+         val directoryId = selectedDirectory ?: return@launchWithExceptionReporting
+         actionsRepo.insert(
+            PebblinAction(
+               title = title,
+               directoryId = directoryId,
+               taskerTaskName = targetTask,
+               targetDirectoryId = targetDirectory,
+               voiceArgument = voiceArgument
+            )
+         )
+      }
+
+   fun editActionTitleVoiceArgument(id: Int, title: String, voiceArgument: Boolean) = resources.launchWithExceptionReporting {
+      actionLogger.logAction { "ActionListViewModel.editActionTitle(id = $id, title = $title)" }
+      val action = _uiState.value.data?.actions?.find { it.id == id } ?: return@launchWithExceptionReporting
+
+      actionsRepo.update(
+         id = id,
+         title = title,
+         enabled = action.enabled,
+         voiceArgument = voiceArgument
+      )
+   }
+
+   fun editActionEnabled(id: Int, enabled: Boolean) = resources.launchWithExceptionReporting {
+      actionLogger.logAction { "ActionListViewModel.editActionEnabled(id = $id, enabled = $enabled)" }
+      val action = _uiState.value.data?.actions?.find { it.id == id } ?: return@launchWithExceptionReporting
+
+      actionsRepo.update(
+         id = id,
+         title = action.title,
+         enabled = enabled,
+         voiceArgument = action.voiceArgument
+      )
+   }
+
+   fun deleteAction(id: Int) = resources.launchWithExceptionReporting {
+      actionLogger.logAction { "TaskListViewModel.deleteAction(id = $id)" }
+
+      actionsRepo.delete(id)
+   }
+
+   fun reorder(id: Int, to: Int) = resources.launchWithExceptionReporting {
+      actionLogger.logAction { "ActionListViewModel.reorder($id, $to)" }
+
+      actionsRepo.reorder(id, to)
+   }
+}
+
+@Immutable
+data class ActionListState(
+   val directory: PebblinDirectory,
+   val actions: List<PebblinAction>,
+   val showActionsWarning: Boolean,
+)

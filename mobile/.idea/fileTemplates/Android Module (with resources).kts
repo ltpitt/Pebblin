@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.matejdro.catapult.${NAME}"
+    namespace = "com.ltpitt.pebblin.${NAME}"
 
     buildFeatures {
         androidResources = true

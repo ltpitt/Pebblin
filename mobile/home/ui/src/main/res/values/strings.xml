@@ -7,7 +7,7 @@
     <string name="notifications_permission_title">Notifications</string>
     <string name="notification_permission_description">Needed for error reporting</string>
     <string name="continue_to_the_app">Continue to the app</string>
-    <string name="onboarding_title">Welcome to the Catapult App!</string>
+    <string name="onboarding_title">Welcome to the Pebblin App!</string>
     <string name="onboarding_intro">Since the app is mostly running on its own in the background, afterward, all permissions are
         being asked up front. All are optional:
     </string>

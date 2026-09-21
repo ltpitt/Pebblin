@@ -7,7 +7,7 @@ require_cmd pebble "Install it with: uv tool install pebble-tool --python 3.13"
 
 log "Installing watchapp on the connected watch"
 if [[ -n "${PEBBLE_PHONE_IP:-}" ]]; then
-  pebble install --phone "$PEBBLE_PHONE_IP" watch/build/catapult-watchapp.pbw
+  pebble install --phone "$PEBBLE_PHONE_IP" watch/build/pebblin-watchapp.pbw
 else
-  pebble install --phone watch/build/catapult-watchapp.pbw
+  pebble install --phone watch/build/pebblin-watchapp.pbw
 fi

@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-   namespace = "com.matejdro.catapult.home.ui"
+   namespace = "com.ltpitt.pebblin.home.ui"
 
    androidResources.enable = true
 }

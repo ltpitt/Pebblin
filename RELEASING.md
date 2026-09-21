@@ -1,6 +1,6 @@
-# Releasing Catapult
+# Releasing Pebblin
 
-Catapult releases produce both the Android APK and Pebble watchapp PBW from
+Pebblin releases produce both the Android APK and Pebble watchapp PBW from
 the same release workflow.
 
 ## Makefile shortcuts
@@ -35,14 +35,14 @@ the full test/lint/screenshot-test/watchapp/versioning pipeline, use the
 2. It builds the Android debug APK and Pebble watchapp PBW — no tests, no lint,
    and no versioning.
 3. Download the Android APK and Pebble PBW from the run's **Artifacts** section:
-   `catapult-mobile-debug-apk` contains only the Android APK, while
-   `catapult-quick-build` contains both the Android APK and Pebble PBW. Both
+   `pebblin-mobile-debug-apk` contains only the Android APK, while
+   `pebblin-quick-build` contains both the Android APK and Pebble PBW. Both
    are also available from the `debug-latest` prerelease.
 
 This build is signed with the debug key. It is published as the rolling
 `debug-latest` **prerelease** on GitHub (overwritten on every run), containing
 both the Android debug APK and Pebble watchapp PBW — see
-`https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest`. It is
+`https://github.com/ltpitt/Pebblin/releases/tag/debug-latest`. It is
 not a substitute for the full `develop-build` release below.
 
 ## Automated release
@@ -62,8 +62,8 @@ The canonical process is the `develop-build` workflow in
    `watch/package.json`, then commits and tags that version.
 5. It builds and tests the Android app and Pebble watchapp, then creates a
    GitHub Release containing:
-   - `mobile/app/build/outputs/apk/release/catapult-mobile.apk`
-   - `watch/build/catapult-watchapp.pbw`
+   - `mobile/app/build/outputs/apk/release/pebblin-mobile.apk`
+   - `watch/build/pebblin-watchapp.pbw`
 
 Do not manually edit the version files for a normal release. The workflow
 keeps the Android and watch versions aligned when both components changed; if

@@ -1,0 +1,281 @@
+package com.ltpitt.pebblin.bluetooth
+
+import com.matejdro.bucketsync.BucketSyncWatchLoop
+import com.ltpitt.pebblin.actionlist.api.PebblinActionRepository
+import com.ltpitt.pebblin.common.flow.firstData
+import com.ltpitt.pebblin.tasker.TaskerTaskStarter
+import com.ltpitt.pebblin.tasker.InteractiveSessionManager
+import com.ltpitt.pebblin.tasker.InteractiveTaskerRequest
+import com.ltpitt.pebblin.tasker.InteractiveRequestSender
+import com.ltpitt.pebblin.tasker.InteractiveTaskerResult
+import com.matejdro.pebble.bluetooth.common.PacketQueue
+import com.matejdro.pebble.bluetooth.common.WatchAppConnection
+import com.matejdro.pebble.bluetooth.common.di.WatchappConnectionGraph
+import com.matejdro.pebble.bluetooth.common.di.WatchappConnectionScope
+import com.matejdro.pebble.bluetooth.common.util.requireString
+import com.matejdro.pebble.bluetooth.common.util.requireUint
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.binding
+import io.rebble.pebblekit2.common.model.PebbleDictionary
+import io.rebble.pebblekit2.common.model.PebbleDictionaryItem
+import io.rebble.pebblekit2.common.model.PebbleDictionaryItem.UInt16
+import io.rebble.pebblekit2.common.model.PebbleDictionaryItem.UInt8
+import io.rebble.pebblekit2.common.model.ReceiveResult
+import io.rebble.pebblekit2.common.model.WatchIdentifier
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
+import logcat.logcat
+
+@Inject
+@ContributesBinding(WatchappConnectionScope::class, binding<WatchAppConnection>())
+@Suppress("MagicNumber") // Packet processing involves a lot of numbers, it would be less readable to make consts
+class WatchappConnectionImpl(
+   coroutineScope: CoroutineScope,
+   private val actionRepository: PebblinActionRepository,
+   private val taskerTaskStarter: TaskerTaskStarter,
+   private val watchappOpenController: WatchappOpenController,
+   private val packetQueue: PacketQueue,
+   private val bucketSyncWatchLoop: BucketSyncWatchLoop,
+   private val interactiveSessionManager: InteractiveSessionManager,
+   private val watch: WatchIdentifier,
+) : WatchAppConnection, InteractiveRequestSender {
+   private var watchBufferSize: Int = 0
+
+   init {
+      coroutineScope.launch {
+         try {
+            packetQueue.runQueue()
+         } finally {
+            withContext(NonCancellable) {
+               interactiveSessionManager.cancelActive(
+                  watchId = watch.toString(),
+                  reason = "Watch connection closed",
+               )
+            }
+            interactiveSessionManager.unregisterSender(watch.toString(), this@WatchappConnectionImpl)
+         }
+      }
+   }
+
+   override suspend fun sendInteractivePackets(packets: List<PebbleDictionary>) {
+      val sent = withTimeoutOrNull(INTERACTIVE_SEND_TIMEOUT) {
+         packets.forEach { packetQueue.sendPacket(it) }
+      }
+
+      if (sent == null) {
+         logcat { "Interactive request could not be sent before the connection timed out" }
+         throw InteractiveSendTimeoutException()
+      }
+   }
+
+   override suspend fun send(sessionId: UInt, request: InteractiveTaskerRequest) {
+      val message = when (request) {
+         is InteractiveTaskerRequest.List -> InteractiveWatchMessage.ShowList(
+            sessionId = sessionId,
+            title = request.title,
+            items = request.items.map { item ->
+               InteractiveWatchMessage.Item(
+                  id = item.id,
+                  value = item.value,
+               )
+            },
+         )
+         is InteractiveTaskerRequest.Confirmation -> InteractiveWatchMessage.ShowConfirmation(
+            sessionId = sessionId,
+            title = request.title,
+            message = request.message,
+         )
+      }
+
+      sendInteractiveRequest(message)
+   }
+
+   override suspend fun cancel(sessionId: UInt, reason: String) {
+      sendInteractiveRequest(
+         InteractiveWatchMessage.Cancel(
+            sessionId = sessionId,
+            reason = reason,
+         ),
+      )
+   }
+
+   override suspend fun onPacketReceived(data: PebbleDictionary): ReceiveResult {
+      val id = (data.get(0u) as PebbleDictionaryItem.UInt32?)?.value
+      logcat { "Received packet ${id ?: "null"}" }
+
+      return when (id) {
+         0u -> {
+            processWatchWelcomePacket(data)
+         }
+
+         4u -> {
+            processStartTaskPacket(data)
+         }
+
+         in InteractiveWatchMessage.PACKET_SHOW_LIST..InteractiveWatchMessage.PACKET_CANCEL_OR_ERROR -> {
+            processInteractiveResponse(data)
+         }
+
+         else -> {
+            logcat { "Unknown packet ID. Nacking..." }
+            ReceiveResult.Nack
+         }
+      }
+   }
+
+   suspend fun sendInteractiveRequest(message: InteractiveWatchMessage) {
+      val limit = watchBufferSize
+      if (limit <= 0) {
+         failInteractive(message.sessionId, "Watch connection is unavailable")
+         return
+      }
+
+      try {
+         sendInteractivePackets(message.packets(limit))
+      } catch (expected: InteractiveSendTimeoutException) {
+         logcat { "Interactive request could not be sent before the timeout expired" }
+         failInteractive(message.sessionId, "Interactive request could not be sent")
+      } catch (e: CancellationException) {
+         throw e
+      } catch (e: Exception) {
+         failInteractive(message.sessionId, e.message ?: "Failed to send interactive request")
+      }
+   }
+
+   suspend fun sendInteractiveMessage(message: InteractiveWatchMessage) = sendInteractiveRequest(message)
+
+   private suspend fun processInteractiveResponse(data: PebbleDictionary): ReceiveResult {
+      val message = try {
+         InteractiveWatchMessage.decode(data)
+      } catch (e: IllegalArgumentException) {
+         logcat { "Malformed interactive packet: ${e.message ?: "unknown reason"}" }
+         return ReceiveResult.Nack
+      }
+
+      val result = when (message) {
+         is InteractiveWatchMessage.ListSelection ->
+            InteractiveTaskerResult.Selection(
+               id = message.selectedItemId,
+               value = message.selectedItemValue,
+            )
+         is InteractiveWatchMessage.ConfirmationResult ->
+            InteractiveTaskerResult.Confirmation(message.accepted)
+         is InteractiveWatchMessage.Cancel ->
+            InteractiveTaskerResult.Cancelled(message.reason)
+         is InteractiveWatchMessage.CancelOrError ->
+            message.error?.let(InteractiveTaskerResult::Failed)
+               ?: InteractiveTaskerResult.Cancelled("Watch cancelled interactive session")
+         is InteractiveWatchMessage.ShowList,
+         is InteractiveWatchMessage.ShowConfirmation,
+         is InteractiveWatchMessage.ListChunk,
+         -> {
+            logcat { "Unexpected interactive request from watch" }
+            return ReceiveResult.Nack
+         }
+      }
+
+      interactiveSessionManager.acceptResult(watch.toString(), message.sessionId, result)
+      return ReceiveResult.Ack
+   }
+
+   private suspend fun failInteractive(sessionId: UInt, reason: String) {
+      interactiveSessionManager.acceptResult(watch.toString(), sessionId, InteractiveTaskerResult.Failed(reason))
+   }
+
+   private suspend fun processWatchWelcomePacket(data: PebbleDictionary): ReceiveResult {
+      val watchProtocolVersion = data.requireUint(1u)
+      if (watchProtocolVersion != PROTOCOL_VERSION.toUInt()) {
+         watchBufferSize = 0
+         logcat { "Mismatch protocol version $watchProtocolVersion" }
+         packetQueue.sendPacket(
+            mapOf(
+               0u to PebbleDictionaryItem.UInt8(1u),
+               1u to PebbleDictionaryItem.UInt16(PROTOCOL_VERSION)
+            )
+         )
+         return ReceiveResult.Ack
+      }
+
+      val activeBuckets = data[7u]
+         ?.let { it as? PebbleDictionaryItem.Bytes }
+         ?.value
+         ?.map { it.toUByte() }
+         .orEmpty()
+
+      val watchVersion = data.requireUint(2u).toUShort()
+      watchBufferSize = data.requireUint(3u).toInt()
+      logcat { "Watch data: version=$watchVersion, buffer size=$watchBufferSize" }
+      interactiveSessionManager.registerSender(watch.toString(), this)
+
+      bucketSyncWatchLoop.sendFirstPacketAndStartLoop(
+         mapOfNotNull(
+            0u to UInt8(1u),
+            1u to UInt16(PROTOCOL_VERSION),
+            (3u to UInt8(1u)).takeIf { watchappOpenController.isNextWatchappOpenForAutoSync() },
+         ),
+         watchVersion,
+         watchBufferSize,
+         activeBuckets,
+      )
+
+      return ReceiveResult.Ack
+   }
+
+   private suspend fun processStartTaskPacket(data: PebbleDictionary): ReceiveResult {
+      val actionId = data.requireUint(1u)
+      val remoteActionTitle = data.requireString(2u)
+      val parameter = (data[3u] as PebbleDictionaryItem.Text?)?.value
+
+      val action = actionRepository.getById(actionId.toInt()).firstData()
+      if (action == null) {
+         logcat { "Unknown action. Nacking..." }
+         return ReceiveResult.Nack
+      }
+
+      if (action.title != remoteActionTitle) {
+         logcat { "Mismatch action. local='${action.title}' vs remote='$remoteActionTitle'. Nacking..." }
+         return ReceiveResult.Nack
+      }
+
+      val taskerTask = action.taskerTaskName
+      if (taskerTask == null) {
+         logcat { "Target action has no task. Nacking..." }
+         return ReceiveResult.Nack
+      }
+
+      logcat { "Starting task $taskerTask, parameter '${parameter ?: "NULL"}'" }
+
+      val success = taskerTaskStarter.startTask(taskerTask, parameter)
+
+      return if (success) {
+         logcat { "Task successfully started" }
+         ReceiveResult.Ack
+      } else {
+         logcat { "Tasker task launch failed" }
+         ReceiveResult.Nack
+      }
+   }
+
+   @Inject
+   @ContributesBinding(AppScope::class)
+   class Factory(
+      private val subgraphFactory: WatchappConnectionGraph.Factory,
+   ) : WatchAppConnection.Factory {
+      override fun create(watch: WatchIdentifier, scope: CoroutineScope): WatchAppConnection {
+         return subgraphFactory.create(scope, watch).createWatchappConnection()
+      }
+   }
+}
+
+private fun <K, V> mapOfNotNull(vararg pairs: Pair<K, V>?): Map<K, V> =
+   pairs.filterNotNull().toMap()
+
+private const val INTERACTIVE_SEND_TIMEOUT = 5_000L
+
+private class InteractiveSendTimeoutException : Exception()

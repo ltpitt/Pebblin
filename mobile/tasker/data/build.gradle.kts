@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-   namespace = "com.matejdro.catapult.tasker"
+   namespace = "com.ltpitt.pebblin.tasker"
 
    androidResources.enable = true
 }

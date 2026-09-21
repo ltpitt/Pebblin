@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-   namespace = "com.matejdro.catapult.actionlist.ui"
+   namespace = "com.ltpitt.pebblin.actionlist.ui"
 
    androidResources.enable = true
 }

@@ -22,7 +22,7 @@ the implementation.
 
 The watch returns the selected action and session result through the shared
 [result contract](../reference/protocol-and-results.md#result-contract),
-including `%catapult_result_action`. Packet IDs and the session model come from
+including `%pebblin_result_action`. Packet IDs and the session model come from
 [`reference/protocol-and-results.md`](../reference/protocol-and-results.md);
 lineage is in the [parity matrix](../reference/autopebble-parity-matrix.md). The
 screen is independent of Tasker and can be reused by future callers.

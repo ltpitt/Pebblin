@@ -8,5 +8,5 @@ require_cmd pebble "Install it with: uv tool install pebble-tool --python 3.13 &
 log "Building watchapp (watch/pebble build)"
 cd watch
 pebble build
-mv build/watch.pbw build/catapult-watchapp.pbw
-log "Watchapp: watch/build/catapult-watchapp.pbw"
+mv build/watch.pbw build/pebblin-watchapp.pbw
+log "Watchapp: watch/build/pebblin-watchapp.pbw"

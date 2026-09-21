@@ -98,7 +98,7 @@ different version or the `@v1` floating tag.
                Branch: `${{ github.ref_name }}`
                Commit: `${{ github.sha }}`
                Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-             artifacts: "mobile/app/build/outputs/apk/debug/catapult-mobile.apk,watch/build/catapult-watchapp.pbw"
+             artifacts: "mobile/app/build/outputs/apk/debug/pebblin-mobile.apk,watch/build/pebblin-watchapp.pbw"
              prerelease: true
              allowUpdates: true
              removeArtifacts: true
@@ -209,23 +209,23 @@ jobs:
         working-directory: mobile
 
       - name: Build watchapp
-        run: pebble build && mv build/watch.pbw build/catapult-watchapp.pbw
+        run: pebble build && mv build/watch.pbw build/pebblin-watchapp.pbw
         working-directory: watch
 
       - name: Upload debug APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: catapult-mobile-debug-apk
-          path: mobile/app/build/outputs/apk/debug/catapult-mobile.apk
+          name: pebblin-mobile-debug-apk
+          path: mobile/app/build/outputs/apk/debug/pebblin-mobile.apk
           retention-days: 14
 
       - name: Upload quick-build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: catapult-quick-build
+          name: pebblin-quick-build
           path: |
-            mobile/app/build/outputs/apk/debug/catapult-mobile.apk
-            watch/build/catapult-watchapp.pbw
+            mobile/app/build/outputs/apk/debug/pebblin-mobile.apk
+            watch/build/pebblin-watchapp.pbw
           retention-days: 14
 
       - name: Publish quick build as a prerelease
@@ -241,7 +241,7 @@ jobs:
             Branch: `${{ github.ref_name }}`
             Commit: `${{ github.sha }}`
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          artifacts: "mobile/app/build/outputs/apk/debug/catapult-mobile.apk,watch/build/catapult-watchapp.pbw"
+          artifacts: "mobile/app/build/outputs/apk/debug/pebblin-mobile.apk,watch/build/pebblin-watchapp.pbw"
           prerelease: true
           allowUpdates: true
           removeArtifacts: true

@@ -1,6 +1,6 @@
 {
-  "name": "catapult",
-  "author": "matejdro",
+  "name": "pebblin",
+  "author": "ltpitt",
   "version": "1.2",
   "keywords": [
     "pebble-app"
@@ -8,7 +8,7 @@
   "private": false,
   "dependencies": {},
   "pebble": {
-    "displayName": "Catapult",
+    "displayName": "Pebblin",
     "uuid": "54be2d78-a70c-4573-a73e-5b0f1323d4cd",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -64,10 +64,10 @@
     },
     "companionApp": {
       "android": {
-        "url": "https://github.com/matejdro/PebbleCatapult",
+        "url": "https://github.com/ltpitt/Pebblin",
         "apps": [
           {
-            "package": "com.matejdro.catapult"
+            "package": "com.ltpitt.pebblin"
           }
         ]
       }

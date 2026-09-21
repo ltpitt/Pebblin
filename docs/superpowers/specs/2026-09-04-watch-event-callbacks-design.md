@@ -22,7 +22,7 @@ Lineage is tracked in the [parity matrix](../reference/autopebble-parity-matrix.
 
 ### Deferred: motion (accelerometer X/Y/Z) streaming
 
-AutoPebble streamed raw accelerometer X/Y/Z values to Tasker. Catapult defers
+AutoPebble streamed raw accelerometer X/Y/Z values to Tasker. Pebblin defers
 this: continuous motion streaming drains the battery and serves a narrow use
 case. It is classified **Dropped (deferred)** in the parity matrix and is not
 part of this feature's first implementation. Revisit only with real-device

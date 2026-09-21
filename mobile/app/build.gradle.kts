@@ -8,19 +8,19 @@ plugins {
 }
 
 android {
-   namespace = "com.matejdro.catapult"
+   namespace = "com.ltpitt.pebblin"
 
    buildFeatures {
       buildConfig = true
    }
 
    defaultConfig {
-      applicationId = "com.matejdro.catapult"
+      applicationId = "com.ltpitt.pebblin"
       targetSdk = 34
       versionCode = 1
       versionName = "1.0.0"
 
-      testInstrumentationRunner = "com.matejdro.catapult.instrumentation.TestRunner"
+      testInstrumentationRunner = "com.ltpitt.pebblin.instrumentation.TestRunner"
       testInstrumentationRunnerArguments += "clearPackageData" to "true"
       // Needed to enable test coverage
       testInstrumentationRunnerArguments += "useTestStorageService" to "true"
@@ -76,7 +76,7 @@ android {
    applicationVariants.all {
       outputs.all {
          val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-         output.outputFileName = "catapult-mobile.apk"
+         output.outputFileName = "pebblin-mobile.apk"
       }
    }
 }
@@ -95,7 +95,7 @@ custom {
 sqldelight {
    databases {
       create("Database") {
-         packageName.set("com.matejdro.catapult")
+         packageName.set("com.ltpitt.pebblin")
          schemaOutputDirectory.set(file("src/main/sqldelight/databases"))
 
          // Use project() wrapper as a workaround for the https://github.com/sqldelight/sqldelight/pull/5801

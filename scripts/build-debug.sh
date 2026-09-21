@@ -5,4 +5,4 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 log "Building debug APK (mobile/gradlew :app:assembleDebug)"
 cd mobile
 ./gradlew :app:assembleDebug
-log "APK: mobile/app/build/outputs/apk/debug/catapult-mobile.apk"
+log "APK: mobile/app/build/outputs/apk/debug/pebblin-mobile.apk"

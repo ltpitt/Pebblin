@@ -5,7 +5,7 @@ plugins {
 
 android {
 
-   namespace = "com.matejdro.catapult.crashreport"
+   namespace = "com.ltpitt.pebblin.crashreport"
    androidResources.enable = true
 }
 

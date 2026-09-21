@@ -1,0 +1,184 @@
+package com.ltpitt.pebblin.tasker
+
+import android.app.Service
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Binder
+import android.os.Bundle
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import com.ltpitt.pebblin.common.NotificationsKeys
+import com.ltpitt.pebblin.common.di.NavigationInjectingApplication
+import dev.zacsweers.metro.Inject
+import dispatch.core.MainImmediateCoroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import logcat.logcat
+import net.dinglisch.android.tasker.TaskerPlugin
+import si.inova.kotlinova.core.reporting.ErrorReporter
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.cancellation.CancellationException
+
+class TaskerActionService : Service() {
+   @Inject
+   lateinit var taskerRunner: TaskerActionRunner
+
+   @Inject
+   lateinit var errorReporter: ErrorReporter
+
+   @Inject
+   lateinit var coroutineScope: MainImmediateCoroutineScope
+
+   private val runningTasks = AtomicInteger(0)
+
+   private val binder by lazy { Binder() }
+
+   override fun onCreate() {
+      applicationContext!!
+         .let { it as NavigationInjectingApplication }
+         .applicationGraph
+         .let { it as TaskerServiceInjector }
+         .inject(this)
+
+      super.onCreate()
+   }
+
+   @Suppress("SuspendFunSwallowedCancellation") // CancellationException is re-thrown after signalFinish
+   override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+      val canBind = intent.getBooleanExtra(TaskerPluginConstants.EXTRA_CAN_BIND_FIRE_SETTING, false)
+      logcat { "Starting TaskerActionService. Bound: $canBind" }
+      if (!canBind) {
+         startForeground()
+      }
+
+      runningTasks.incrementAndGet()
+
+      coroutineScope.launch {
+         try {
+            val result = taskerRunner.run(intent.extras ?: Bundle())
+            logcat { "Run finished" }
+
+            val taskerResult = result?.toTaskerBundle()
+            val resultCode =
+               if (result == null || result.isSuccess()) {
+                  TaskerPluginConstants.RESULT_CODE_OK
+               } else {
+                  TaskerPluginConstants.RESULT_CODE_FAILED
+               }
+            TaskerPlugin.Setting.signalFinish(
+               this@TaskerActionService,
+               intent,
+               resultCode,
+               taskerResult ?: Bundle(),
+            )
+         } catch (e: CancellationException) {
+            TaskerPlugin.Setting.signalFinish(
+               this@TaskerActionService,
+               intent,
+               TaskerPluginConstants.RESULT_CODE_FAILED,
+               failureBundle("Cancelled"),
+            )
+            throw e
+         } catch (e: Exception) {
+            val exceptionName = e.javaClass.simpleName.ifEmpty { "UnknownException" }
+            logcat { "Tasker action failed: $exceptionName: ${e.message ?: "no message"}" }
+            errorReporter.report(e)
+            TaskerPlugin.Setting.signalFinish(
+               this@TaskerActionService,
+               intent,
+               TaskerPluginConstants.RESULT_CODE_FAILED,
+               failureBundle(e.message ?: exceptionName),
+            )
+         } finally {
+            val leftTasks = runningTasks.decrementAndGet()
+            if (leftTasks == 0) {
+               logcat { "Stopping service" }
+               stopSelf()
+            }
+         }
+      }
+
+      return super.onStartCommand(intent, flags, startId)
+   }
+
+   override fun onDestroy() {
+      coroutineScope.cancel()
+   }
+
+   override fun onBind(intent: Intent?): IBinder? {
+      return binder
+   }
+
+   private fun startForeground() {
+      val notification = NotificationCompat.Builder(this, NotificationsKeys.CHANNEL_ID_TASKER_SERVICE)
+         .setContentTitle(
+            getString(com.ltpitt.pebblin.sharedresources.R.string.app_name)
+         )
+         .setContentText(getString(R.string.running_tasker_action))
+         .setSmallIcon(com.ltpitt.pebblin.sharedresources.R.drawable.ic_launcher)
+         .build()
+
+      ServiceCompat.startForeground(
+         this,
+         NotificationsKeys.NOTIFICATION_ID_TASKER_SERVICE,
+         notification,
+         FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+      )
+   }
+}
+
+private fun failureBundle(message: String) = Bundle().apply {
+   putString(RESULT_STATUS_KEY, "failed")
+   putString(RESULT_ID_KEY, "")
+   putString(RESULT_VALUE_KEY, "")
+   putString("%err", "1")
+   putString("%errmsg", message)
+}
+
+internal fun InteractiveTaskerResult.toTaskerBundle() = Bundle().apply {
+   putString(
+      RESULT_STATUS_KEY,
+      when (this@toTaskerBundle) {
+         InteractiveTaskerResult.Success -> "success"
+         is InteractiveTaskerResult.Selection -> "success"
+         is InteractiveTaskerResult.Confirmation -> if (accepted) "success" else "failed"
+         is InteractiveTaskerResult.Cancelled -> "cancelled"
+         is InteractiveTaskerResult.TimedOut -> "timeout"
+         is InteractiveTaskerResult.Failed -> "failed"
+      },
+   )
+   putString(RESULT_ID_KEY, "")
+   putString(RESULT_VALUE_KEY, "")
+   if (this@toTaskerBundle is InteractiveTaskerResult.Selection) {
+      putString(RESULT_ID_KEY, this@toTaskerBundle.id)
+      putString(RESULT_VALUE_KEY, this@toTaskerBundle.value)
+   }
+   if (!this@toTaskerBundle.isSuccess()) {
+      putString("%err", "1")
+      putString("%errmsg", this@toTaskerBundle.reason())
+   }
+}
+
+private const val RESULT_STATUS_KEY = TaskerResultKeys.STATUS
+private const val RESULT_ID_KEY = TaskerResultKeys.RESULT_ID
+private const val RESULT_VALUE_KEY = TaskerResultKeys.RESULT_VALUE
+
+internal fun InteractiveTaskerResult.isSuccess() =
+   this is InteractiveTaskerResult.Success ||
+      this is InteractiveTaskerResult.Selection ||
+      (this is InteractiveTaskerResult.Confirmation && accepted)
+
+internal fun InteractiveTaskerResult.reason() = when (this) {
+   InteractiveTaskerResult.Success -> "Success"
+   is InteractiveTaskerResult.Cancelled -> reason
+   is InteractiveTaskerResult.TimedOut -> reason
+   is InteractiveTaskerResult.Failed -> reason
+   is InteractiveTaskerResult.Selection -> "Unexpected selection result"
+   is InteractiveTaskerResult.Confirmation -> "Confirmation rejected"
+}
+
+/**
+ * copy of the [ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE] for compat reasons
+ */
+private const val FOREGROUND_SERVICE_TYPE_SPECIAL_USE = 1 shl 30

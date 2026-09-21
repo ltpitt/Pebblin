@@ -6,4 +6,4 @@ require_cmd adb "Install Android platform-tools and ensure a device/emulator is 
 "$(dirname "${BASH_SOURCE[0]}")/build-debug.sh"
 
 log "Installing on the first connected device/emulator (adb install -r)"
-adb install -r mobile/app/build/outputs/apk/debug/catapult-mobile.apk
+adb install -r mobile/app/build/outputs/apk/debug/pebblin-mobile.apk

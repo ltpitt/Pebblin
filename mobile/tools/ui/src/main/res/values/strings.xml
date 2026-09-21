@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="permissions">Permissions</string>
-    <string name="version">Catapult version %1$s</string>
+    <string name="version">Pebblin version %1$s</string>
     <string name="save_logs">Save logs</string>
     <string name="read_today_logs">Read today\'s logs</string>
     <string name="today_logs">Today\'s logs</string>
@@ -17,5 +17,5 @@
     <string name="notification_test_body">Body</string>
     <string name="notification_test_send">Send to watch</string>
     <string name="notification_test_success">Notification sent successfully. Check the watch.</string>
-    <string name="notification_test_no_permissions">Failed: notifications are disabled for Catapult.</string>
+    <string name="notification_test_no_permissions">Failed: notifications are disabled for Pebblin.</string>
 </resources>

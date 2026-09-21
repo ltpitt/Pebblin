@@ -17,8 +17,8 @@ press to `long_select`; `back` remains cancellation.
 
 Tasker receives the variables defined in the
 [result contract](../reference/protocol-and-results.md#result-contract):
-`%catapult_status`, `%catapult_result_id`, `%catapult_result_value`, and
-`%catapult_result_action`. Missing `long_select` metadata falls back to normal
+`%pebblin_status`, `%pebblin_result_id`, `%pebblin_result_value`, and
+`%pebblin_result_action`. Missing `long_select` metadata falls back to normal
 selection, so existing configurations remain valid.
 
 ## Failure handling and testing

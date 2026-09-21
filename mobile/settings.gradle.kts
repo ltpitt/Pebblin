@@ -33,7 +33,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "PebbleCatapult"
+rootProject.name = "Pebblin"
 
 include(":app")
 include(":app-screenshot-tests")

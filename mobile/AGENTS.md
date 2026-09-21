@@ -43,9 +43,9 @@ unavailable".
 ### Returning variables to Tasker (and showing them on the plugin screen)
 
 Interactive actions return their result as Tasker local variables in the bundle
-passed to `TaskerPlugin.Setting.signalFinish` — e.g. `%catapult_status`,
-`%catapult_result_id`, `%catapult_result_value` (see `TaskerResultKeys`). A task
-can use these in the next action (e.g. Flash `%catapult_result_value`).
+passed to `TaskerPlugin.Setting.signalFinish` — e.g. `%pebblin_status`,
+`%pebblin_result_id`, `%pebblin_result_value` (see `TaskerResultKeys`). A task
+can use these in the next action (e.g. Flash `%pebblin_result_value`).
 
 For Tasker to **show** these on the action's config screen and offer them for
 autocomplete, the configuration activity must *declare* them: attach the
@@ -86,7 +86,7 @@ wireless device often appears twice:
 ADB=~/Library/Android/sdk/platform-tools/adb
 $ADB devices -l                 # note the transport_id of the FP6/phone
 $ADB -t <transport_id> logcat -c # clear, then reproduce on the phone
-$ADB -t <transport_id> logcat -v time > /tmp/catapult_logcat.txt
+$ADB -t <transport_id> logcat -v time > /tmp/pebblin_logcat.txt
 ```
 
 Grep for `WatchappConnectionImpl`, `PebbleProtocol`, `interactive`, and the

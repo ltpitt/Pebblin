@@ -3,7 +3,7 @@
 ## Goal
 
 Refresh `README.MD` into a modern, functional, and welcoming landing page for
-someone who has a Pebble watch and Tasker and wants to try Catapult. Preserve
+someone who has a Pebble watch and Tasker and wants to try Pebblin. Preserve
 the useful existing content and the demo media, but make the install path,
 current capabilities, project context, and next steps easier to scan.
 
@@ -11,7 +11,7 @@ current capabilities, project context, and next steps easier to scan.
 
 The primary audience is a new Pebble + Tasker user. The README will:
 
-- describe Catapult as a community fork of the original PebbleCatapult project
+- describe Pebblin as a community fork of the original Pebblin project
   by [@matejdro](https://github.com/matejdro/PebbleCatapult), with explicit
   appreciation for that foundation;
 - explain that this fork's current goal is practical feature parity with
@@ -49,7 +49,7 @@ paths.
 
 The primary call to action will be **Download the latest preview**, linking to
 the `debug-latest` release:
-`https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest`.
+`https://github.com/ltpitt/Pebblin/releases/tag/debug-latest`.
 Describe it as a rolling prerelease containing the Android APK and Pebble PBW,
 so users understand that it is convenient for trying the current fork but is
 not a stable release channel.
@@ -86,9 +86,9 @@ upstream or malformed relative URLs.
 
 ## Acceptance criteria
 
-- A new Pebble + Tasker user can understand Catapult's purpose and the
+- A new Pebble + Tasker user can understand Pebblin's purpose and the
   Android-to-watch workflow from the README alone.
-- The upstream maintainer and original PebbleCatapult project receive clear,
+- The upstream maintainer and original Pebblin project receive clear,
   visible credit.
 - The README states the practical AutoPebble / Pebble Tasker parity goal and
   links to the detailed parity boundary.

@@ -1,0 +1,160 @@
+package com.ltpitt.pebblin.tasker.ui.screens.notification
+
+import android.os.Bundle
+import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.ltpitt.pebblin.tasker.BundleKeys
+import com.ltpitt.pebblin.tasker.TaskerAction
+import com.ltpitt.pebblin.tasker.ui.TaskerConfigurationActivity
+import kotlinx.serialization.Serializable
+import si.inova.kotlinova.core.activity.requireActivity
+import si.inova.kotlinova.navigation.screenkeys.ScreenKey
+import si.inova.kotlinova.navigation.screens.InjectNavigationScreen
+import si.inova.kotlinova.navigation.screens.Screen
+
+private const val DEFAULT_DURATION_SECONDS = 10L
+private const val MAX_DURATION_SECONDS = 300L
+private const val MILLISECONDS_PER_SECOND = 1_000L
+private const val TASKER_NOTIFICATION_TIMEOUT_MS = 20_000
+
+@InjectNavigationScreen
+class NotificationScreen : Screen<NotificationScreenKey>() {
+   @Composable
+   override fun Content(key: NotificationScreenKey) {
+      val activity = LocalContext.current.requireActivity() as TaskerConfigurationActivity
+      var title by remember { mutableStateOf(activity.existingData.getString(BundleKeys.TITLE).orEmpty()) }
+      var body by remember { mutableStateOf(activity.existingData.getString(BundleKeys.MESSAGE).orEmpty()) }
+      var duration by remember {
+         mutableStateOf(
+            activity.existingData
+               .getLong(
+                  BundleKeys.NOTIFICATION_DURATION_MS,
+                  DEFAULT_DURATION_SECONDS * MILLISECONDS_PER_SECOND,
+               )
+               .div(MILLISECONDS_PER_SECOND)
+               .toString()
+         )
+      }
+      var error by remember { mutableStateOf<String?>(null) }
+
+      fun save() {
+         error = validateNotification(title, duration)
+         if (error != null) return
+         val durationMs = requireNotNull(duration.toLongOrNull()) * MILLISECONDS_PER_SECOND
+
+         Log.d(
+            "PebblinTasker",
+            "Saving notification configuration: durationSeconds=$duration, durationMs=$durationMs",
+         )
+         activity.saveConfiguration(
+            Bundle().apply {
+               putString(BundleKeys.ACTION, TaskerAction.SEND_NOTIFICATION.name)
+               putString(BundleKeys.TITLE, title)
+               putString(BundleKeys.MESSAGE, body)
+               putLong(BundleKeys.NOTIFICATION_DURATION_MS, durationMs)
+            },
+            title,
+            finish = true,
+            requestedTimeoutMs = TASKER_NOTIFICATION_TIMEOUT_MS,
+         )
+      }
+
+      NotificationScreenContent(
+         title = title,
+         body = body,
+         duration = duration,
+         error = error,
+         setTitle = { newTitle ->
+            title = newTitle
+            error = validateNotification(title, duration)
+         },
+         setBody = { body = it },
+         setDuration = { newDuration ->
+            duration = newDuration
+            error = validateNotification(title, duration)
+         },
+         save = ::save,
+      )
+   }
+
+   private fun validateNotification(title: String, duration: String): String? {
+      val durationSeconds = duration.toLongOrNull()
+      return when {
+         title.isBlank() -> "Title cannot be blank"
+         durationSeconds == null -> "Duration must be a whole number of seconds"
+         durationSeconds < 0 -> "Duration cannot be negative"
+         durationSeconds > MAX_DURATION_SECONDS -> "Duration cannot exceed 300 seconds"
+         else -> null
+      }
+   }
+}
+
+@Composable
+private fun NotificationScreenContent(
+   title: String,
+   body: String,
+   duration: String,
+   error: String?,
+   setTitle: (String) -> Unit,
+   setBody: (String) -> Unit,
+   setDuration: (String) -> Unit,
+   save: () -> Unit,
+) {
+   Column(
+      Modifier
+         .padding(16.dp)
+         .safeDrawingPadding(),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+   ) {
+      OutlinedTextField(
+         value = title,
+         onValueChange = setTitle,
+         label = { Text("Title") },
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+         isError = error == "Title cannot be blank",
+      )
+      OutlinedTextField(
+         value = body,
+         onValueChange = setBody,
+         label = { Text("Body") },
+         modifier = Modifier.fillMaxWidth(),
+      )
+      OutlinedTextField(
+         value = duration,
+         onValueChange = setDuration,
+         label = { Text("Duration (seconds; 0 = no expiry)") },
+         modifier = Modifier.fillMaxWidth(),
+         singleLine = true,
+         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+         isError = error != null && error != "Title cannot be blank",
+      )
+      if (error != null) {
+         Text(error, color = MaterialTheme.colorScheme.error)
+      }
+      Button(onClick = save, modifier = Modifier.fillMaxWidth()) {
+         Text("Save")
+      }
+   }
+}
+
+@Serializable
+data object NotificationScreenKey : ScreenKey()

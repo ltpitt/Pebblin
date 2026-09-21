@@ -10,7 +10,7 @@ When adding or changing Pebble UI, start from the closest matching example in
 the official [Pebble UI patterns repository](https://github.com/pebble-examples/ui-patterns).
 Preserve its native layer types, element positions, sizing, colors, fonts,
 spacing, and animation structure. Adapt only the application data and lifecycle
-behavior required by Catapult.
+behavior required by Pebblin.
 
 ### Click handling gotcha (app faults)
 
@@ -46,7 +46,7 @@ pebble logs --emulator aplite
 
 ### Deterministic emulator reproduction
 
-`watch/tools/catapult_interactive.py` replays the exact interactive wire protocol
+`watch/tools/pebblin_interactive.py` replays the exact interactive wire protocol
 straight to the watchapp (bypassing Tasker and the Android app). Build/install to
 an emulator, then drive it over the pypkjs websocket:
 

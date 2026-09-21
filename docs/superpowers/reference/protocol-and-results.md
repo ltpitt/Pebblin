@@ -1,6 +1,6 @@
 # Protocol and Result Contract Registry
 
-This is the authoritative reference for Catapult's AppMessage packet IDs, the
+This is the authoritative reference for Pebblin's AppMessage packet IDs, the
 Tasker result-variable contract, and the gesture vocabulary shared by every
 interactive feature. Specs must link here instead of redefining these values so
 that packet numbers never collide and the result contract stays consistent.
@@ -15,7 +15,7 @@ Every watch UI change must start from the closest matching example in the
 [official Pebble UI patterns repository](https://github.com/pebble-examples/ui-patterns).
 Use its layout, native layer types, typography, colors, spacing, and interaction
 patterns as the baseline; adapt only the data and lifecycle behavior required by
-Catapult. This rule applies to every implementation plan and screen variant.
+Pebblin. This rule applies to every implementation plan and screen variant.
 
 Android-to-Pebble communication must start from the official
 [PebbleKit Android 2](https://github.com/pebble-dev/PebbleKitAndroid2) APIs and
@@ -45,10 +45,10 @@ future screen variant) reports its outcome through the same Tasker variables.
 
 | Variable | Meaning |
 | --- | --- |
-| `%catapult_status` | One of `success`, `cancelled`, `timeout`, `failed`. |
-| `%catapult_result_id` | Selected item's stable action ID (screens that select an item). |
-| `%catapult_result_value` | Selected item's display value (screens that select an item). |
-| `%catapult_result_action` | Gesture kind that produced the result (`select` or `long_select`). |
+| `%pebblin_status` | One of `success`, `cancelled`, `timeout`, `failed`. |
+| `%pebblin_result_id` | Selected item's stable action ID (screens that select an item). |
+| `%pebblin_result_value` | Selected item's display value (screens that select an item). |
+| `%pebblin_result_action` | Gesture kind that produced the result (`select` or `long_select`). |
 
 Rules:
 

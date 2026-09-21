@@ -1,11 +1,11 @@
-# Catapult watch tools
+# Pebblin watch tools
 
-Diagnostic helpers that talk to the Catapult watchapp directly, bypassing
+Diagnostic helpers that talk to the Pebblin watchapp directly, bypassing
 Tasker and the Android companion. Use them to isolate whether an interactive
 failure lives in the **watch protocol/rendering** or in the **Android
 transport**.
 
-## `catapult_interactive.py` — SHOW_LIST replay
+## `pebblin_interactive.py` — SHOW_LIST replay
 
 Sends the exact `SHOW_LIST` payload the Android app would send (`InteractiveWatchMessage.ShowList`),
 straight to the watchapp over the AppMessage endpoint, and prints the watch's
@@ -23,7 +23,7 @@ pebble repl            # add --phone <phone-ip> if needed
 Then inside the REPL:
 
 ```python
-exec(open('watch/tools/catapult_interactive.py').read())
+exec(open('watch/tools/pebblin_interactive.py').read())
 
 # Launch the app, send the demo list, and print responses:
 replay(pebble)
@@ -43,7 +43,7 @@ When connected to an emulator you can inject the button press too, so the whole
 `SHOW_LIST -> render -> selection` path runs unattended:
 
 ```python
-exec(open('watch/tools/catapult_interactive.py').read())
+exec(open('watch/tools/pebblin_interactive.py').read())
 replay(pebble)
 select_row(pebble, row=0)   # highlights + selects the first item ("Home")
 ```
@@ -65,16 +65,16 @@ Expected response in the REPL:
 ### Inspect the wire payload without a watch
 
 ```sh
-python3 watch/tools/catapult_interactive.py
+python3 watch/tools/pebblin_interactive.py
 ```
 
 Prints the exact per-chunk dictionaries that would be sent.
 
-## `test_catapult_interactive.py`
+## `test_pebblin_interactive.py`
 
 Structural tests asserting the builder mirrors the Android serializer and the
 Pebble receiver (keys `0..8`, types, sequencing, terminal flag).
 
 ```sh
-python3 watch/tools/test_catapult_interactive.py
+python3 watch/tools/test_pebblin_interactive.py
 ```

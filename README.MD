@@ -1,52 +1,62 @@
-# Catapult for Pebble
+# Pebblin for Pebble
 
 <div align="center">
 
 Control your Tasker actions from your Pebble watch.
 
-[**Download the latest preview**](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest)
+[**Download the latest preview**](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest)
 ·
 [**See the feature parity matrix**](docs/superpowers/reference/autopebble-parity-matrix.md)
 
 </div>
 
-![Catapult running on a Pebble watch](docs/demo.gif)
+![Pebblin running on a Pebble watch](docs/demo.gif)
 
-## What is Catapult?
+## What is Pebblin?
 
-Catapult connects [Tasker](https://tasker.joaoapps.com/) with PebbleOS watches,
+Pebblin connects [Tasker](https://tasker.joaoapps.com/) with PebbleOS watches,
 so actions you already use on Android can be launched, organized, and answered
 from your wrist.
 
-This repository is a community fork of
+This repository is an independent continuation of
 [PebbleCatapult](https://github.com/matejdro/PebbleCatapult), originally created
-and maintained by [@matejdro](https://github.com/matejdro). The foundation and
-original work deserve real credit and appreciation.
+and maintained by [@matejdro](https://github.com/matejdro). Original work and
+attribution notices remain under the Apache License 2.0; see [NOTICE](NOTICE).
+Pebblin is not affiliated with or endorsed by Pebble, Tasker, or the original
+PebbleCatapult project.
 
-The current goal of this fork is practical feature parity with AutoPebble /
-Pebble Tasker. Progress is guided by user feedback, the maintainer's own needs,
+The current goal of Pebblin is practical feature parity with AutoPebble /
+Pebble Tasker. Progress is guided by user feedback, the project's own needs,
 and available time. It is an ambitious direction rather than a promise that
 every historical feature will return. The
 [AutoPebble parity matrix](docs/superpowers/reference/autopebble-parity-matrix.md)
 shows what is built, planned, or intentionally not supported.
 
+### Migration from Catapult
+
+Pebblin is a clean-break app identity, not an in-place update. Existing
+Catapult Tasker actions and `%catapult_*` variables do not migrate
+automatically. Install Pebblin, recreate the plugin actions, and update
+follow-up variable references to `%pebblin_*`. The watchapp UUID remains stable,
+but install the Pebblin watchapp again.
+
 ## Quick start
 
 The current download is a rolling preview. It is convenient for trying the
-latest fork, but it is not a stable release channel.
+latest Pebblin build, but it is not a stable release channel.
 
-1. Open the [latest preview release](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest).
+1. Open the [latest preview release](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest).
 2. Download both assets:
-   - `catapult-mobile.apk` - the Android app.
-   - `catapult-watchapp.pbw` - the Pebble watchapp.
+   - `pebblin-mobile.apk` - the Android app.
+   - `pebblin-watchapp.pbw` - the Pebble watchapp.
 3. Install the APK on your Android phone.
-4. Install the PBW through a supported Pebble companion app, then open Catapult.
+4. Install the PBW through a supported Pebble companion app, then open Pebblin.
 
 The legacy Pebble app is not supported. Use
 [microPebble](https://github.com/matejdro/microPebble) or the new
 Pebble/Core app instead.
 
-## Use the Catapult app
+## Use the Pebblin app
 
 The Android app is where you prepare the menu on your watch. Use it to choose
 Tasker tasks, group them into directories, control which actions are visible,
@@ -64,7 +74,7 @@ runs.
    existing directory inside another one, open the parent directory, tap **+**,
    and choose **Open Directory**.
 
-When the phone and watch are connected, Catapult syncs changes to the watch.
+When the phone and watch are connected, Pebblin syncs changes to the watch.
 When you add or edit a Tasker action, you can also enable
 [voice input](#add-voice-input-to-a-tasker-action).
 
@@ -78,10 +88,10 @@ The **Tools** tab provides:
 - **Read today's logs** - inspect the logs from the current day.
 - **Save logs** - create a ZIP file that you can share when reporting a problem.
 
-## Use Catapult from Tasker
+## Use Pebblin from Tasker
 
-Create or edit a Tasker task, add an action, and choose **Plugin > Catapult**.
-Catapult's actions are configured in their own screen and run when the Tasker
+Create or edit a Tasker task, add an action, and choose **Plugin > Pebblin**.
+Pebblin's actions are configured in their own screen and run when the Tasker
 task reaches them.
 
 ### Use Tasker variables
@@ -103,10 +113,10 @@ Choose **Send notification**, then fill in:
 - **Duration (seconds)** - an optional action setting; the delivered notification
   follows the normal Android and Pebble companion notification behavior.
 
-Save the action and run the task. Catapult posts a normal Android notification,
+Save the action and run the task. Pebblin posts a normal Android notification,
 which the Pebble companion app mirrors to the watch. It pops up, can be
 dismissed, and remains in the watch's notification history. Make sure Android
-notifications are enabled for Catapult.
+notifications are enabled for Pebblin.
 
 ### Show a list
 
@@ -131,7 +141,7 @@ variables and a follow-up example.
 
 ### Add voice input to a Tasker action
 
-When you add or edit a Tasker action in Catapult, enable **Pass voice input as
+When you add or edit a Tasker action in Pebblin, enable **Pass voice input as
 %par1**. Save the action and sync it to the watch.
 
 When you select that action on the watch, speak when prompted. Tasker receives
@@ -140,7 +150,7 @@ For example, a task can use `%par1` as the text for a search, message, or note.
 
 ## What works today
 
-Catapult currently supports:
+Pebblin currently supports:
 
 - **Launch and organize:** launch Tasker actions from the watch, use nested
   folders, and browse cached actions even when the phone is not immediately
@@ -161,24 +171,25 @@ Interactive actions return these local variables to Tasker:
 
 | Variable | Meaning |
 | --- | --- |
-| `%catapult_status` | `success`, `failed`, `cancelled`, or `timeout` |
-| `%catapult_result_id` | Selected item's ID (list selection only) |
-| `%catapult_result_value` | Selected item's value (list selection only) |
+| `%pebblin_status` | `success`, `failed`, `cancelled`, or `timeout` |
+| `%pebblin_result_id` | Selected item's ID (list selection only) |
+| `%pebblin_result_value` | Selected item's value (list selection only) |
 
 For example, an "Ask for a location" task can show a CSV of saved locations,
 then use a follow-up Tasker condition:
 
 ```text
-If %catapult_status ~ success
+If %pebblin_status ~ success
     Open Google Maps:
-    geo:0,0?q=%catapult_result_value(%catapult_result_id)
+    geo:0,0?q=%pebblin_result_value(%pebblin_result_id)
 ```
 
 ## Project links
 
-- [Latest preview release](https://github.com/ltpitt/PebbleCatapult/releases/tag/debug-latest)
+- [Latest preview release](https://github.com/ltpitt/Pebblin/releases/tag/debug-latest)
 - [AutoPebble parity matrix](docs/superpowers/reference/autopebble-parity-matrix.md)
 - [Release and build notes](RELEASING.md)
+- [Attribution and licensing](NOTICE)
 - [Contributing](CONTRIBUTING.MD)
 
 ## Contributing

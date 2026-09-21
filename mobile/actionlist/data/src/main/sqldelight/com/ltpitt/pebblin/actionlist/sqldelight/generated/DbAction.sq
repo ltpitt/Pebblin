@@ -1,0 +1,96 @@
+CREATE TABLE dbPebblinAction (
+    id INTEGER PRIMARY KEY NOT NULL,
+    directoryId INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    taskerTaskName TEXT,
+    targetDirectoryId INTEGER,
+    sortOrder INTEGER NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    voiceArgument INTEGER NOT NULL DEFAULT 0
+);
+
+selectAll:
+SELECT dbPebblinAction.id,
+    dbPebblinAction.title,
+    dbPebblinAction.directoryId,
+    dbPebblinAction.taskerTaskName,
+    dbPebblinAction.targetDirectoryId,
+    dbPebblinAction.sortOrder,
+    dbPebblinAction.enabled,
+    dbPebblinAction.voiceArgument,
+    dbDirectory.title AS targetDirectoryName
+    FROM
+        dbPebblinAction LEFT JOIN
+            dbDirectory ON dbDirectory.id = dbPebblinAction.targetDirectoryId
+    WHERE dbPebblinAction.directoryId = :directoryId AND enabled != :enabledNot
+    ORDER BY sortOrder ASC
+    LIMIT :limit;
+
+selectSingle:
+SELECT dbPebblinAction.id,
+    dbPebblinAction.title,
+    dbPebblinAction.directoryId,
+    dbPebblinAction.taskerTaskName,
+    dbPebblinAction.targetDirectoryId,
+    dbPebblinAction.sortOrder,
+    dbPebblinAction.enabled,
+    dbPebblinAction.voiceArgument,
+    dbDirectory.title AS targetDirectoryName
+    FROM
+        dbPebblinAction LEFT JOIN
+            dbDirectory ON dbDirectory.id = dbPebblinAction.targetDirectoryId
+    WHERE dbPebblinAction.id = :id;
+
+selectSingleRaw:
+    SELECT * FROM dbPebblinAction WHERE id = ?;
+
+insert:
+   INSERT INTO dbPebblinAction (title, directoryId, taskerTaskName, targetDirectoryId, enabled, voiceArgument, sortOrder)
+   VALUES (
+       :title,
+       :directoryId,
+       :taskerTaskName,
+       :targetDirectoryId,
+       :enabled,
+       :voiceArgument,
+       (SELECT COALESCE(MAX(sortOrder) + 1, 0) FROM dbPebblinAction WHERE directoryId = :directoryId)
+   );
+
+delete {
+    UPDATE dbPebblinAction
+    SET sortOrder = sortOrder - 1
+    WHERE sortOrder > (SELECT sortOrder FROM dbPebblinAction WHERE id = :id) AND directoryId = (SELECT directoryId FROM dbPebblinAction WHERE id = :id);
+
+    DELETE FROM dbPebblinAction WHERE id = :id;
+}
+
+update:
+    UPDATE dbPebblinAction SET title = :title, enabled = :enabled, voiceArgument = :voiceArgument WHERE id = ?;
+
+reorderUpwards {
+    UPDATE dbPebblinAction
+    SET sortOrder = sortOrder - 1
+    WHERE (sortOrder BETWEEN :fromIndex AND :toIndex) AND directoryId = :directoryId;
+
+    UPDATE dbPebblinAction
+    SET sortOrder = :toIndex
+    WHERE id = :id;
+}
+
+reorderDownwards {
+    UPDATE dbPebblinAction
+    SET sortOrder = sortOrder + 1
+    WHERE (sortOrder BETWEEN :toIndex AND :fromIndex) AND directoryId = :directoryId;
+
+    UPDATE dbPebblinAction
+    SET sortOrder = :toIndex
+    WHERE id = :id;
+}
+
+getDirectoryId:
+SELECT directoryId FROM dbPebblinAction WHERE id = :id;
+
+toggle {
+    UPDATE dbPebblinAction SET enabled = 1 WHERE id IN :enable;
+    UPDATE dbPebblinAction SET enabled = 0 WHERE id IN :disable;
+}

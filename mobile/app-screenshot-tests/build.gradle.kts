@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-   namespace = "com.matejdro.catapult.screenshottests"
+   namespace = "com.ltpitt.pebblin.screenshottests"
 
    androidResources.enable = true
 
