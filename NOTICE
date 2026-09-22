@@ -10,5 +10,10 @@ notices remain applicable to the corresponding work in this repository.
 Pebblin is not affiliated with or endorsed by Pebble, Tasker, or the original
 PebbleCatapult project.
 
+The repository also includes the PebbleCommons component, originally published
+at https://github.com/matejdro/PebbleCommons. Its Apache License 2.0 is
+retained at `PebbleCommons/LICENSE`; source files with other notices retain
+those notices in place.
+
 Unless a file states otherwise, this repository is distributed under the
 Apache License, Version 2.0. See LICENSE.

@@ -58,7 +58,7 @@ include(":tasker:data")
 include(":tasker:ui")
 include(":tools:ui")
 
-// Projects from PebbleCommons
+// Integrated PebbleCommons modules
 
 include(":bluetooth-common")
 project(":bluetooth-common").projectDir = file("../PebbleCommons/mobile/bluetooth-common")
